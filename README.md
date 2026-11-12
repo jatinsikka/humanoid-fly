@@ -20,6 +20,7 @@ and [notes/JET_BOOSTERS.md](notes/JET_BOOSTERS.md) (jet design, run-by-run histo
 Training progression videos: [iter 200](media/ironman_progress_1_iter200.mp4),
 [iter 800](media/ironman_progress_2_iter800.mp4), [with heading command](media/ironman_progress_3_heading_iter500.mp4).
 Best policies with their exact configs: `checkpoints/`. Short training clips: `media/training_clips/`.
+Every raw checkpoint, log and video (886 MB): the `raw-logs-2026-11-09` GitHub release (extract into the repo root).
 
 ## Jet pack
 The R1 (29 kg) gets two gimballed jet boosters on the back of its torso and learns to fly to 3D waypoints with PPO.
