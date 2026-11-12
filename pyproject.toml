@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "humanoid_fly"
+version = "0.1.0"
+description = "Unitree R1 with back-mounted jet boosters, trained to fly with RL in Isaac Lab"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+include = ["humanoid_fly*"]

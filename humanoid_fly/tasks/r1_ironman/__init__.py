@@ -1,0 +1,47 @@
+"""R1 with Iron Man-style thrusters in its feet and hands, flying to 3D waypoints."""
+
+import gymnasium as gym
+
+from . import agents
+
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-v0",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManPPORunnerCfg",
+    },
+)
+
+# Stage 2: fine-tune a flying policy for a steadier hover (train with --resume <stage-1 ckpt>).
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-Smooth-v0",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManSmoothEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManSmoothPPORunnerCfg",
+    },
+)
+
+# v1: same robot, but also commanded to face the direction it flies (no yaw drift/spin).
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-v1",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManHeadingEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManHeadingPPORunnerCfg",
+    },
+)
+
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-Smooth-v1",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManHeadingSmoothEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManHeadingSmoothPPORunnerCfg",
+    },
+)

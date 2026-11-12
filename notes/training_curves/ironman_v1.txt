@@ -1,0 +1,4 @@
+0 rew=-0.58 len=17.9 std=0.6 dist=2.72 died=0.0417 angv=-0.0266 upr=-0.0016 fine=0.0002
+100 rew=103 len=599 std=0.63 dist=0.125 died=0 angv=-0.962 upr=-0.0281 fine=2.21
+200 rew=129 len=599 std=0.61 dist=0.0621 died=0 angv=-0.782 upr=-0.0255 fine=3.62
+257 rew=134 len=599 std=0.59 dist=0.0431 died=0 angv=-0.723 upr=-0.0278 fine=3.89

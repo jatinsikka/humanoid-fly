@@ -1,0 +1,13 @@
+0 rew=-1.11 len=20.2 std=0.6 dist=2.74 died=0.917 angv=-0.0047 upr=-0.0034 fine=0.0002
+100 rew=129 len=557 std=0.57 dist=1.36 died=0.292 angv=-0.149 upr=-0.116 fine=2.5
+200 rew=120 len=476 std=0.53 dist=1.45 died=0.417 angv=-0.211 upr=-0.12 fine=3.39
+300 rew=158 len=599 std=0.54 dist=0.0175 died=0 angv=-0.253 upr=-0.142 fine=4.35
+400 rew=156 len=596 std=0.54 dist=0.102 died=0.0417 angv=-0.329 upr=-0.167 fine=4.37
+500 rew=157 len=594 std=0.54 dist=0.119 died=0.0417 angv=-0.301 upr=-0.172 fine=4.42
+600 rew=156 len=596 std=0.55 dist=0.0152 died=0 angv=-0.364 upr=-0.209 fine=4.43
+700 rew=144 len=557 std=0.56 dist=0.245 died=0.125 angv=-0.465 upr=-0.232 fine=4.32
+800 rew=153 len=594 std=0.55 dist=0.0631 died=0.0833 angv=-0.491 upr=-0.258 fine=4.38
+900 rew=154 len=593 std=0.54 dist=0.0175 died=0 angv=-0.474 upr=-0.253 fine=4.49
+1000 rew=154 len=593 std=0.55 dist=0.275 died=0.0833 angv=-0.493 upr=-0.255 fine=4.41
+1100 rew=152 len=594 std=0.57 dist=0.0523 died=0.0833 angv=-0.499 upr=-0.251 fine=4.41
+1199 rew=154 len=596 std=0.57 dist=0.0303 died=0.0417 angv=-0.444 upr=-0.238 fine=4.43
