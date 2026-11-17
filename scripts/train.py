@@ -26,6 +26,10 @@ parser.add_argument("--video_interval", type=int, default=2400, help="policy ste
 parser.add_argument("--env", nargs="*", default=[], metavar="KEY=VALUE",
                     help="override env cfg fields, e.g. --env yaw_rate_reward_scale=-0.4 upright_reward_scale=-6")
 parser.add_argument("--logger", default="wandb", choices=["wandb", "tensorboard"])
+parser.add_argument("--early_save_every", type=int, default=5,
+                    help="extra checkpoints every N iterations at the start of a fresh run (0 = off; ignored with --resume)."
+                         " These are what scripts/showcase.py uses to show the robot learning to balance")
+parser.add_argument("--early_save_until", type=int, default=60, help="...for the first N iterations")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.enable_cameras = not args.no_video
@@ -95,6 +99,27 @@ if args.resume:
         assert n_reset > 0, "no std parameter found to reset"
 dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
 dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
-runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
+
+def learn(n: int, first: bool):
+    """runner.learn for n iterations; keeps the iteration count continuous across calls (each call saves
+    model_<iteration>.pt at its end, which is how the early checkpoints get written)."""
+    start = runner.current_learning_iteration
+    runner.learn(num_learning_iterations=n, init_at_random_ep_len=first)
+    if runner.current_learning_iteration == start + n - 1:  # rsl_rl versions that stop at the last done iteration
+        runner.current_learning_iteration = start + n
+
+
+total = agent_cfg.max_iterations
+done, first = 0, True
+if args.early_save_every > 0 and not args.resume:
+    until = min(args.early_save_until, total)
+    print(f"[INFO] extra checkpoints every {args.early_save_every} iterations up to iteration {until}")
+    while done < until:
+        n = min(args.early_save_every, until - done)
+        learn(n, first)
+        done, first = done + n, False
+        runner.save(os.path.join(log_dir, f"model_{done}.pt"))  # exact names: model_5, model_10, ...
+if done < total:
+    learn(total - done, first)
 env.close()
 app.close()

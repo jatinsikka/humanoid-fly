@@ -20,6 +20,8 @@ parser.add_argument("--hold_s", type=float, default=4.0, help="seconds per waypo
 parser.add_argument("--wandb", action="store_true", help="upload the video + metrics to W&B project humanoid_fly")
 parser.add_argument("--no_video", action="store_true", help="metrics only")
 parser.add_argument("--num_envs", type=int, default=1, help="fly the tour in this many envs at once (metrics over all, video of env 0)")
+parser.add_argument("--thruster_vis", default=None, choices=["attached", "none"],
+                    help="flames / jetpack drawn attached to the robot (default) or not at all")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 args.enable_cameras = not args.no_video
@@ -44,6 +46,10 @@ env_cfg = parse_env_cfg(args.task, device=args.device, num_envs=args.num_envs)
 env_cfg.air_start_prob = 0.0
 env_cfg.goal_resample_time_s = 1e6
 env_cfg.episode_length_s = args.hold_s * len(WAYPOINTS) + 2.0
+if args.thruster_vis is not None:
+    if not hasattr(env_cfg, "thruster_vis"):
+        raise SystemExit(f"--thruster_vis is not supported by {args.task}")
+    env_cfg.thruster_vis = args.thruster_vis
 agent_cfg = load_cfg_from_registry(args.task, "rsl_rl_cfg_entry_point")
 agent_cfg = handle_deprecated_rsl_rl_cfg(agent_cfg, metadata.version("rsl-rl-lib"))
 agent_cfg.device = env_cfg.sim.device

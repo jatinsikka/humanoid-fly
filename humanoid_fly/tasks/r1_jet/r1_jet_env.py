@@ -13,10 +13,13 @@ from isaaclab.envs import DirectRLEnv
 from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.utils.math import quat_apply, quat_apply_inverse, quat_from_angle_axis, quat_from_euler_xyz, quat_mul, subtract_frame_transforms
 
+from .. import visuals
 from .r1_jet_env_cfg import WHOLE_BODY_JOINTS, R1JetEnvCfg
 
-BOOSTER_LENGTH = 0.30
+BOOSTER_LENGTH = 0.30  # casing, visual only
+BOOSTER_RADIUS = 0.055
 FLAME_LENGTH = 0.60  # at full throttle
+FLAME_RADIUS = 0.05
 
 
 class R1JetEnv(DirectRLEnv):
@@ -47,6 +50,12 @@ class R1JetEnv(DirectRLEnv):
         assert self._robot.num_joints == (self.cfg.observation_space - 19 - self.cfg.action_space) // 2
 
         self._q_cant_b, self._thrust_axis_b = self._compute_cant()
+        vis_axis = torch.tensor(self._vis_axis_b(), device=dev)
+        err = math.degrees(math.acos(max(-1.0, min(1.0, float(torch.dot(vis_axis, self._thrust_axis_b))))))
+        if self._vis_pivots and err > 1.0:
+            true_deg = math.degrees(math.atan2(self._thrust_axis_b[0].item(), self._thrust_axis_b[2].item()))
+            print(f"[R1Jet] WARNING: booster casings are drawn {err:.1f} deg off the real neutral thrust axis; "
+                  f"set booster_vis_cant_deg = {true_deg:.1f} in R1JetEnvCfg")
 
         mass = wp.to_torch(self._robot.root_view.get_masses())[0].sum().item()
         g = torch.tensor(self.sim.cfg.gravity).norm().item()
@@ -72,16 +81,74 @@ class R1JetEnv(DirectRLEnv):
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        # jetpack is authored on env 0's robot before cloning, as children of the torso link, so every env gets it
+        # and it moves rigidly with the back (no render lag)
+        self._vis_pivots = self._attach_jetpack_visuals() if (self.cfg.debug_vis and self.cfg.thruster_vis == "attached") else []
         self.scene.clone_environments(copy_from_source=False)
+        self._live_flames = (
+            visuals.LiveFlames(self.cfg.robot.prim_path, self._vis_pivots, self.scene.cfg.num_envs)
+            if self._vis_pivots and self.cfg.live_flames else None
+        )
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
-        # point the camera (world coords) at env 0's flight volume; DirectRLEnv copies cfg.viewer
-        # into the video recorder after this, so this also frames the --video / W&B clips
-        o = self._terrain.env_origins[0].tolist()
-        self.cfg.viewer.eye = (o[0] + 6.5, o[1] + 6.5, o[2] + 4.0)
-        self.cfg.viewer.lookat = (o[0], o[1], o[2] + 2.2)
+        # training clips / W&B: hero robot (env 0) in front, the rest of the grid behind it.
+        # DirectRLEnv copies cfg.viewer into the video recorder after this.
+        self.cfg.viewer.eye, self.cfg.viewer.lookat = visuals.grid_camera(
+            self._terrain.env_origins, self.cfg.camera_back, self.cfg.camera_height, self.cfg.camera_ahead,
+            self.cfg.camera_look_height,
+        )
+
+    def _vis_axis_b(self) -> tuple[float, float, float]:
+        """Neutral booster axis (thrust direction) used for the casings, torso frame."""
+        c = math.radians(self.cfg.booster_vis_cant_deg)
+        return (math.sin(c), 0.0, math.cos(c))
+
+    def _attach_jetpack_visuals(self) -> list[str]:
+        """Two booster casings and a pack plate on the torso link, plus a flame out of the bottom of each casing.
+
+        The physics applies each booster's thrust at its mount point (shoulder-blade height) along the booster axis.
+        The casing runs from that point *down* the back along the same axis, and the flame leaves its bottom end: the
+        force acts along the same line, so drawing the exit lower changes nothing physically, and the pack sits on
+        the back instead of sticking up past the shoulders. Returns the flame pivots relative to the robot root.
+        """
+        roots = visuals.robot_roots(self.cfg.robot.prim_path)
+        if not roots:
+            print(f"[R1Jet] no robot prim at {self.cfg.robot.prim_path}: no jetpack visuals")
+            return []
+        axis = self._vis_axis_b()
+        exhaust = tuple(-c for c in axis)
+        back = (-self.cfg.booster_vis_back_offset, 0.0, 0.0)
+        thr = self.cfg.attached_flame_throttle
+        rel = []
+        for root in roots:  # normally just env 0 (cloned afterwards)
+            links = visuals.find_links(root, [self.cfg.booster_body])
+            if links is None:
+                print("[R1Jet] can't attach jetpack visuals: none drawn")
+                return []
+            link = str(links[self.cfg.booster_body].GetPath())
+            rel, centers = [], []
+            for i, mount in enumerate(self.cfg.booster_mounts):
+                top = visuals.vadd(mount, back)
+                center = visuals.vadd(top, axis, -BOOSTER_LENGTH / 2)
+                centers.append(center)
+                visuals.add_cylinder(link, f"jetpack_booster_{i}", center, axis, BOOSTER_RADIUS, BOOSTER_LENGTH,
+                                     color=(0.25, 0.25, 0.28))
+                exit_pt = visuals.vadd(top, axis, -BOOSTER_LENGTH)
+                pivot = visuals.add_flame(
+                    link, f"{visuals.FLAME_PIVOT}_{i}", exit_pt, exhaust, radius=FLAME_RADIUS,
+                    length=FLAME_LENGTH * thr, width=0.6 + 0.6 * thr,
+                    color=(1.0, 0.5, 0.1), emissive=(1.0, 0.45, 0.05),
+                )
+                rel.append(pivot[len(root) + 1:])
+            # pack plate between the casings, slightly in front of them (towards the back of the robot)
+            mid = tuple(sum(c[k] for c in centers) / len(centers) for k in range(3))
+            span = abs(self.cfg.booster_mounts[0][1] - self.cfg.booster_mounts[1][1])
+            visuals.add_box(link, "jetpack_pack", visuals.vadd(mid, (1.0, 0.0, 0.0), 0.02),
+                            (0.04, span + 0.06, BOOSTER_LENGTH * 0.9), axis, color=(0.18, 0.18, 0.2))
+        print(f"[R1Jet] jetpack attached to {self.cfg.booster_body} ({len(roots)} robot prim(s) before cloning)")
+        return rel
 
     # ------------------------------------------------------------------ actions
     def _pre_physics_step(self, actions: torch.Tensor):
@@ -231,7 +298,7 @@ class R1JetEnv(DirectRLEnv):
         rel = d.root_pos_w.torch - self._terrain.env_origins
         fell = rel[:, 2] < self.cfg.min_height
         too_high = rel[:, 2] > self.cfg.max_height
-        too_far = torch.linalg.norm(rel[:, :2], dim=1) > self.scene.cfg.env_spacing / 2.0
+        too_far = torch.linalg.norm(rel[:, :2], dim=1) > self.cfg.max_xy_dist
         tilted = -d.projected_gravity_b.torch[:, 2] < self.cfg.max_tilt_cos
         died = fell | too_high | too_far | tilted
         return died, time_out
@@ -299,70 +366,28 @@ class R1JetEnv(DirectRLEnv):
 
     # ------------------------------------------------------------------ visuals
     def _set_debug_vis_impl(self, debug_vis: bool):
-        if debug_vis:
-            if not hasattr(self, "_goal_vis"):
-                self._goal_vis = VisualizationMarkers(
-                    VisualizationMarkersCfg(
-                        prim_path="/Visuals/R1Jet/goal",
-                        markers={
-                            "goal": sim_utils.SphereCfg(
-                                radius=0.12,
-                                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.1, 0.9, 0.2)),
-                            )
-                        },
-                    )
+        # only the goal is a marker; the jetpack is attached to the torso (see _attach_jetpack_visuals)
+        if debug_vis and not hasattr(self, "_goal_vis"):
+            self._goal_vis = VisualizationMarkers(
+                VisualizationMarkersCfg(
+                    prim_path="/Visuals/R1Jet/goal",
+                    markers={
+                        "goal": sim_utils.SphereCfg(
+                            radius=0.12,
+                            visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.1, 0.9, 0.2)),
+                        )
+                    },
                 )
-                self._booster_vis = VisualizationMarkers(
-                    VisualizationMarkersCfg(
-                        prim_path="/Visuals/R1Jet/booster",
-                        markers={
-                            "booster": sim_utils.CylinderCfg(
-                                radius=0.055,
-                                height=BOOSTER_LENGTH,
-                                visual_material=sim_utils.PreviewSurfaceCfg(diffuse_color=(0.25, 0.25, 0.28), metallic=0.8),
-                            )
-                        },
-                    )
-                )
-                self._flame_vis = VisualizationMarkers(
-                    VisualizationMarkersCfg(
-                        prim_path="/Visuals/R1Jet/flame",
-                        markers={
-                            "flame": sim_utils.ConeCfg(
-                                radius=0.05,
-                                height=FLAME_LENGTH,
-                                visual_material=sim_utils.PreviewSurfaceCfg(
-                                    diffuse_color=(1.0, 0.5, 0.1), emissive_color=(1.0, 0.45, 0.05)
-                                ),
-                            )
-                        },
-                    )
-                )
-            for v in (self._goal_vis, self._booster_vis, self._flame_vis):
-                v.set_visibility(True)
-        else:
-            for name in ("_goal_vis", "_booster_vis", "_flame_vis"):
-                if hasattr(self, name):
-                    getattr(self, name).set_visibility(False)
+            )
+        if hasattr(self, "_goal_vis"):
+            self._goal_vis.set_visibility(debug_vis)
 
     def _debug_vis_callback(self, event):
+        # runs right before each render
         if not self._robot.is_initialized:
             return
         self._goal_vis.visualize(self._goal_pos_w)
-
-        link_pos, link_quat, _ = self._booster_body_state()
-        n = self.num_envs
-        q_link = link_quat.unsqueeze(1).expand(-1, 2, -1).reshape(-1, 4)
-        ex = torch.tensor([1.0, 0.0, 0.0], device=self.device).expand(2 * n, 3)
-        q_booster = quat_mul(q_link, self._booster_quats_b())
-        nozzle = link_pos.unsqueeze(1).expand(-1, 2, -1).reshape(-1, 3) + quat_apply(q_link, self._mounts_b.repeat(n, 1))
-        thrust_dir = quat_apply(q_booster, torch.tensor([0.0, 0.0, 1.0], device=self.device).expand(2 * n, 3))
-        # casing sits above the nozzle along the thrust axis
-        self._booster_vis.visualize(nozzle + thrust_dir * (BOOSTER_LENGTH / 2), q_booster)
-        # flame points out of the nozzle, opposite the thrust; cone apex (+z) flipped to face away
-        q_flip = quat_from_angle_axis(torch.full((2 * n,), math.pi, device=self.device), ex)
-        throttle = self._throttle.reshape(-1).clamp(min=0.02)
-        scales = torch.stack([0.6 + 0.6 * throttle, 0.6 + 0.6 * throttle, throttle], dim=-1)
-        self._flame_vis.visualize(
-            nozzle - thrust_dir * (FLAME_LENGTH * throttle / 2).unsqueeze(-1), quat_mul(q_booster, q_flip), scales
-        )
+        if self._live_flames is not None:
+            thr = self._throttle.clamp(min=0.02)
+            exhaust_b = -self._thrust_dirs_b()  # (n, 2, 3) torso frame, includes cant + gimbal
+            self._live_flames.update((FLAME_LENGTH * thr).cpu(), (0.6 + 0.6 * thr).cpu(), exhaust_b.cpu())

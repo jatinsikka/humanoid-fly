@@ -36,6 +36,23 @@ class R1JetEnvCfg(DirectRLEnvCfg):
     observation_space = 0  # set in __post_init__
     state_space = 0
     debug_vis = True
+    # jetpack visuals (visual only): "attached" = two booster casings + a pack plate bolted to the torso link, so they
+    # move rigidly with the back and never lag, with a flame out of the bottom of each casing; "none" = nothing.
+    # Flames keep attached_flame_throttle's length and point along the neutral axis, unless every robot is in USD
+    # (scene.clone_in_fabric=False, as scripts/showcase.py sets) and live_flames is on: then they follow the
+    # throttle and the gimbal.
+    thruster_vis = "attached"
+    attached_flame_throttle = 0.5  # hover = 1 / thrust_to_weight = 0.5
+    live_flames = True
+    # neutral booster axis for the casings [deg about torso y]. The physics computes it at startup from the CoM
+    # (_compute_cant); the env prints a warning if this differs by more than 1 deg, with the value to put here.
+    booster_vis_cant_deg = -13.5
+    booster_vis_back_offset = 0.04  # [m] casings sit this much further back than the nozzle point (clear the torso)
+    # training-clip camera (visuals.grid_camera): env 0 in front, the rest of the grid behind it [m]
+    camera_back = 7.0
+    camera_height = 3.0
+    camera_ahead = 6.0
+    camera_look_height = 1.8
 
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 200,
@@ -91,6 +108,7 @@ class R1JetEnvCfg(DirectRLEnvCfg):
     min_height = 0.35  # pelvis below this = fell over
     max_height = 8.0
     max_tilt_cos = 0.25  # terminate if the pelvis up-axis is tilted more than ~75 deg
+    max_xy_dist = 6.0  # [m] from the env origin (was env_spacing / 2; kept separate so showcase can pack envs tighter)
 
     # ---- reward scales (multiplied by step_dt) ----------------------------------------------
     pos_coarse_reward_scale = 10.0

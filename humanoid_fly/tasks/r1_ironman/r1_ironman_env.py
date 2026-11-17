@@ -14,29 +14,17 @@ from isaaclab.markers import VisualizationMarkers, VisualizationMarkersCfg
 from isaaclab.utils.math import (
     quat_apply,
     quat_apply_inverse,
-    quat_from_angle_axis,
     quat_from_euler_xyz,
-    quat_mul,
     subtract_frame_transforms,
 )
 from isaaclab.utils.string import resolve_matching_names_values
 
+from .. import visuals
 from .r1_ironman_env_cfg import CONTROL_JOINTS, NUM_CONTROL_JOINTS, R1IronManEnvCfg
 
-CASING_LENGTH = 0.10
-FLAME_LENGTH = (0.70, 0.70, 0.40, 0.40)  # at full throttle: feet, hands
-
-
-def _quat_from_z_to(v: torch.Tensor) -> torch.Tensor:
-    """Quaternion (w, x, y, z) rotating +z onto the unit vectors v, (N, 3)."""
-    z = torch.zeros_like(v)
-    z[:, 2] = 1.0
-    axis = torch.cross(z, v, dim=-1)
-    s = axis.norm(dim=-1)
-    c = v[:, 2]
-    angle = torch.atan2(s, c)
-    axis = torch.where(s.unsqueeze(-1) > 1e-6, axis / s.clamp(min=1e-6).unsqueeze(-1), torch.tensor([1.0, 0.0, 0.0], device=v.device))
-    return quat_from_angle_axis(angle, axis)
+# flame length at full throttle [m]: feet, hands (visual only)
+FLAME_LENGTH = (0.70, 0.70, 0.40, 0.40)
+FLAME_RADIUS = 0.045
 
 
 class R1IronManEnv(DirectRLEnv):
@@ -93,15 +81,49 @@ class R1IronManEnv(DirectRLEnv):
         self.cfg.terrain.num_envs = self.scene.cfg.num_envs
         self.cfg.terrain.env_spacing = self.scene.cfg.env_spacing
         self._terrain = self.cfg.terrain.class_type(self.cfg.terrain)
+        # flames are authored on env 0's robot before cloning, as children of the hand/foot links, so every env gets
+        # them and they move with the limbs (no render lag)
+        rel_pivots = self._attach_thruster_visuals() if (self.cfg.debug_vis and self.cfg.thruster_vis == "attached") else []
         self.scene.clone_environments(copy_from_source=False)
+        self._live_flames = (
+            visuals.LiveFlames(self.cfg.robot.prim_path, rel_pivots, self.scene.cfg.num_envs)
+            if rel_pivots and self.cfg.live_flames else None
+        )
         if self.device == "cpu":
             self.scene.filter_collisions(global_prim_paths=[self.cfg.terrain.prim_path])
         light_cfg = sim_utils.DomeLightCfg(intensity=2000.0, color=(0.75, 0.75, 0.75))
         light_cfg.func("/World/Light", light_cfg)
-        o = self._terrain.env_origins[0].tolist()
-        # camera (and W&B clips) framed on env 0; DirectRLEnv copies cfg.viewer into the recorder after this
-        self.cfg.viewer.eye = tuple(a + b for a, b in zip(o, self.cfg.camera_eye_offset))
-        self.cfg.viewer.lookat = tuple(a + b for a, b in zip(o, self.cfg.camera_lookat_offset))
+        # training clips / W&B: hero robot (env 0) in front, the rest of the grid behind it.
+        # DirectRLEnv copies cfg.viewer into the video recorder after this.
+        self.cfg.viewer.eye, self.cfg.viewer.lookat = visuals.grid_camera(
+            self._terrain.env_origins, self.cfg.camera_back, self.cfg.camera_height, self.cfg.camera_ahead,
+            self.cfg.camera_look_height,
+        )
+
+    def _attach_thruster_visuals(self) -> list[str]:
+        """A flame under each thruster link, starting at the nozzle and pointing along the exhaust (no casing: the
+        jets come straight out of the soles and past the fingertips). Returns the flame pivots' paths relative to the
+        robot root, or [] if the links can't be edited (then there are no thruster visuals)."""
+        roots = visuals.robot_roots(self.cfg.robot.prim_path)
+        if not roots:
+            print(f"[R1IronMan] no robot prim at {self.cfg.robot.prim_path}: no thruster visuals")
+            return []
+        thr = self.cfg.attached_flame_throttle
+        rel = []
+        for root in roots:  # normally just env 0 (cloned afterwards)
+            links = visuals.find_links(root, self.cfg.thruster_bodies)
+            if links is None:
+                print("[R1IronMan] can't attach thruster visuals: none drawn")
+                return []
+            rel = []
+            for i, body in enumerate(self.cfg.thruster_bodies):
+                pivot = visuals.add_flame(
+                    str(links[body].GetPath()), visuals.FLAME_PIVOT, self.cfg.thruster_nozzles[i], self.cfg.thruster_exhaust[i],
+                    radius=FLAME_RADIUS, length=FLAME_LENGTH[i] * thr, width=0.7 + 0.5 * thr,
+                )
+                rel.append(pivot[len(root) + 1:])
+        print(f"[R1IronMan] flames attached to {list(self.cfg.thruster_bodies)} ({len(roots)} robot prim(s) before cloning)")
+        return rel
 
     # ------------------------------------------------------------------ actions
     def _pre_physics_step(self, actions: torch.Tensor):
@@ -223,7 +245,7 @@ class R1IronManEnv(DirectRLEnv):
         rel = d.root_pos_w.torch - self._terrain.env_origins
         fell = rel[:, 2] < self.cfg.min_height
         too_high = rel[:, 2] > self.cfg.max_height
-        too_far = torch.linalg.norm(rel[:, :2], dim=1) > self.scene.cfg.env_spacing / 2.0
+        too_far = torch.linalg.norm(rel[:, :2], dim=1) > self.cfg.max_xy_dist
         tilted = -d.projected_gravity_b.torch[:, 2] < self.cfg.max_tilt_cos
         return fell | too_high | too_far | tilted, time_out
 
@@ -297,6 +319,7 @@ class R1IronManEnv(DirectRLEnv):
 
     # ------------------------------------------------------------------ visuals
     def _set_debug_vis_impl(self, debug_vis: bool):
+        # only the goal is a marker; the flames are attached to the robot (see _attach_thruster_visuals)
         if debug_vis and not hasattr(self, "_goal_vis"):
             self._goal_vis = VisualizationMarkers(
                 VisualizationMarkersCfg(
@@ -308,50 +331,15 @@ class R1IronManEnv(DirectRLEnv):
                     },
                 )
             )
-            # gold-and-red repulsor housings, white-blue exhaust
-            self._casing_vis = VisualizationMarkers(
-                VisualizationMarkersCfg(
-                    prim_path="/Visuals/R1IronMan/casing",
-                    markers={
-                        "casing": sim_utils.CylinderCfg(
-                            radius=0.045,
-                            height=CASING_LENGTH,
-                            visual_material=sim_utils.PreviewSurfaceCfg(
-                                diffuse_color=(0.75, 0.08, 0.05), metallic=0.9, roughness=0.3
-                            ),
-                        )
-                    },
-                )
-            )
-            self._flame_vis = VisualizationMarkers(
-                VisualizationMarkersCfg(
-                    prim_path="/Visuals/R1IronMan/flame",
-                    markers={
-                        "flame": sim_utils.ConeCfg(
-                            radius=0.045,
-                            height=1.0,
-                            visual_material=sim_utils.PreviewSurfaceCfg(
-                                diffuse_color=(0.7, 0.9, 1.0), emissive_color=(0.55, 0.85, 1.0)
-                            ),
-                        )
-                    },
-                )
-            )
-        for name in ("_goal_vis", "_casing_vis", "_flame_vis"):
-            if hasattr(self, name):
-                getattr(self, name).set_visibility(debug_vis)
+        if hasattr(self, "_goal_vis"):
+            self._goal_vis.set_visibility(debug_vis)
 
     def _debug_vis_callback(self, event):
+        # runs right before each render
         if not self._robot.is_initialized:
             return
         self._goal_vis.visualize(self._goal_pos_w)
-        nozzle, push, _ = self._thruster_frames()
-        nozzle, push = nozzle.reshape(-1, 3), push.reshape(-1, 3)
-        q_push = _quat_from_z_to(push)  # cylinder/cone axis (+z) along the push direction
-        self._casing_vis.visualize(nozzle + push * (CASING_LENGTH / 2), q_push)
-        # cone apex is +z: flip it so the flame narrows away from the nozzle
-        q_flame = _quat_from_z_to(-push)
-        thr = self._throttle.reshape(-1).clamp(min=0.02)
-        length = torch.tensor(FLAME_LENGTH, device=self.device).repeat(self.num_envs) * thr
-        scales = torch.stack([0.7 + 0.5 * thr, 0.7 + 0.5 * thr, length], dim=-1)
-        self._flame_vis.visualize(nozzle - push * (length / 2).unsqueeze(-1), q_flame, scales)
+        if self._live_flames is not None:
+            thr = self._throttle.clamp(min=0.02)
+            lengths = thr * torch.tensor(FLAME_LENGTH, device=self.device)
+            self._live_flames.update(lengths.cpu(), (0.7 + 0.5 * thr).cpu())

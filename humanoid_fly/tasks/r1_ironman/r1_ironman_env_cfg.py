@@ -75,8 +75,17 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     observation_space = 29 + 2 * R1_NUM_JOINTS + 4 + NUM_CONTROL_JOINTS
     state_space = 0
     debug_vis = True
-    camera_eye_offset = (6.5, 6.5, 4.0)  # from env 0's origin
-    camera_lookat_offset = (0.0, 0.0, 2.2)
+    # thruster flames (visual only): "attached" = cones parented to the hand/foot links, so they render with the robot
+    # and never lag; "none" = no flames. Flames keep attached_flame_throttle's length unless every robot is in USD
+    # (scene.clone_in_fabric=False, as scripts/showcase.py sets) and live_flames is on: then they follow the throttle.
+    thruster_vis = "attached"
+    attached_flame_throttle = 0.5  # hover is ~0.48
+    live_flames = True
+    # training-clip camera (visuals.grid_camera): env 0 in front, the rest of the grid behind it [m]
+    camera_back = 7.0
+    camera_height = 3.0
+    camera_ahead = 6.0
+    camera_look_height = 1.8
 
     sim: SimulationCfg = SimulationCfg(
         dt=1 / 200,
@@ -121,6 +130,7 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     min_height = 0.35
     max_height = 8.0
     max_tilt_cos = 0.25
+    max_xy_dist = 6.0  # [m] from the env origin (was env_spacing / 2; kept separate so showcase can pack envs tighter)
 
     # ---- reward scales (multiplied by step_dt) ----------------------------------------------
     pos_coarse_reward_scale = 10.0

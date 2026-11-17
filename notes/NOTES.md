@@ -62,3 +62,18 @@ Jet pack design and run-by-run history: [JET_BOOSTERS.md](JET_BOOSTERS.md).
 - `media/`: demo videos; `notes/training_curves/`: per-100-iteration summaries of each Iron Man training stage
 - W&B project `humanoid_fly` (entity jsikka-the-university-of-texas-at-austin): Iron Man training runs
   `p34hhgdt` (stage 1), `3mzn62ud` (stage 2), `9fg7gwbx` (stage 3a), `2sirb1d0` (stage 3b), final demo `yw61ij4f`
+
+## Thruster visuals lagging the limbs (fixed 2026-11-16; not yet run on the GPU box)
+In fast moves the old red casings and flames visibly trailed the hands/feet (e.g.
+`media/training_clips/ironman_v0_early_demo.mp4` around 4.6 s), and the jet's boosters wobbled above the shoulders.
+Visual only: thrust was always applied in `_apply_action` at the current link poses. The cause: they were
+`VisualizationMarkers`, re-placed from `robot.data` in the render callback (which, in Isaac Lab 3.0, runs inside
+`sim.render()` before `scene.update()`, i.e. from the previous step's poses) and drawn behind the robot mesh.
+
+Fix (`humanoid_fly/tasks/visuals.py`): the visuals are now USD shapes parented to the links, authored on env 0 before
+cloning, so the renderer moves them with the robot. Iron Man: no casings, a flame straight out of each sole and past
+each fingertip. Jet: two casings + a pack plate on the torso link running down the back from the thrust point, flame out
+of the bottom (same line of action as the physics). Flame length is fixed in training; `scripts/showcase.py` keeps
+every robot in USD so flames follow each robot's throttle (and the jet's gimbal). The geometry and the live updates
+were checked against real USD (usd-core) on a stand-in robot; rendering in Isaac Sim still needs the GPU box
+(README runbook, step 0).

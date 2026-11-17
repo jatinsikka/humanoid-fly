@@ -4,3 +4,4 @@ wandb/
 logs/
 .claude/
 *.pyc
+CLAUDE.md
