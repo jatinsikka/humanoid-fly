@@ -113,9 +113,6 @@ def noisy(obs, std):
     return obs
 
 
-# the whole condition runs in inference mode: the env's buffers become inference tensors once the policy steps
-# under inference_mode, and resetting them outside it raises "Inplace update to inference tensor"
-@torch.inference_mode()
 def _setup_pose_metrics():
     """Torso body + target pose for the Iron Man posture columns (None for the jet)."""
     if not hasattr(u, "_ctrl_joint_ids"):
@@ -133,6 +130,9 @@ torso_id, pose_target = _setup_pose_metrics()
 z_axis = torch.tensor([[0.0, 0.0, 1.0]], device=dev)
 
 
+# the whole condition runs in inference mode: the env's buffers become inference tensors once the policy steps
+# under inference_mode, and resetting them outside it raises "Inplace update to inference tensor"
+@torch.inference_mode()
 def run(cond):
     u.cfg.air_start_prob = 1.0 if cond == "midair" else 0.0
     scale = {"thrust_low": 1.0 - args.thrust_delta, "thrust_high": 1.0 + args.thrust_delta}.get(cond, 1.0)
