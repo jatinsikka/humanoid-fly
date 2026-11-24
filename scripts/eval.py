@@ -110,6 +110,9 @@ def noisy(obs, std):
     return obs
 
 
+# the whole condition runs in inference mode: the env's buffers become inference tensors once the policy steps
+# under inference_mode, and resetting them outside it raises "Inplace update to inference tensor"
+@torch.inference_mode()
 def run(cond):
     u.cfg.air_start_prob = 1.0 if cond == "midair" else 0.0
     scale = {"thrust_low": 1.0 - args.thrust_delta, "thrust_high": 1.0 + args.thrust_delta}.get(cond, 1.0)

@@ -156,9 +156,10 @@ for i, (ckpt, label) in enumerate(zip(args.checkpoints, labels)):
     runner.load(ckpt)
     policy = runner.get_inference_policy(device=u.device)
     torch.manual_seed(args.seed)  # same starts and goals for every checkpoint
-    env.reset()
-    u.episode_length_buf[:] = 0  # the env staggers episode lengths on a full reset; we want one clean clip
-    obs = env.get_observations()
+    with torch.inference_mode():  # env buffers are inference tensors after the first clip; reset them in that mode
+        env.reset()
+        u.episode_length_buf[:] = 0  # the env staggers episode lengths on a full reset; we want one clean clip
+        obs = env.get_observations()
     for _ in range(3):  # renderer warm-up (first frames can be blank)
         u.render()
     frames, crashes, airborne = [], 0, []
