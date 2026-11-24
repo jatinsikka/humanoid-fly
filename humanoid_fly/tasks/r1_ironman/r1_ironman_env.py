@@ -70,10 +70,20 @@ class R1IronManEnv(DirectRLEnv):
                 offsets = json.load(f)["offsets"]
             self._hover_pose[:] = torch.tensor([offsets[nm] for nm in names], device=dev)
             print(f"[R1IronMan] hover pose from {self.cfg.hover_pose_file}")
+        # per-joint weights of the hold_pose term (normalised to mean 1) and the torso body for the upright bonus
+        w = torch.ones(NUM_CONTROL_JOINTS, device=dev)
+        if self.cfg.hold_pose_joint_weights:
+            for regex, val in self.cfg.hold_pose_joint_weights.items():
+                wids, _, _ = resolve_matching_names_values({regex: val}, names)
+                for i in wids:
+                    w[i] = val
+        self._pose_weights = w / w.mean()
+        self._torso_body_id = self._robot.find_bodies(self.cfg.torso_body)[0][0]
         # first-order low-pass on the joint position targets (cfg.joint_target_filter_tau; 1 = no filtering)
         tau = self.cfg.joint_target_filter_tau
         self._target_alpha = 1.0 if tau <= 0 else self.step_dt / (tau + self.step_dt)
         self._joint_targets = self._robot.data.default_joint_pos.torch.clone()
+        self._z_axis = torch.tensor([[0.0, 0.0, 1.0]], device=dev)
 
         self._goal_pos_w = torch.zeros(n, 3, device=dev)
         self._target_yaw = torch.zeros(n, device=dev)
@@ -85,7 +95,7 @@ class R1IronManEnv(DirectRLEnv):
             for k in [
                 "pos_coarse", "pos_fine", "progress", "action_bound", "upright", "lin_vel", "ang_vel",
                 "action_rate", "throttle", "joint_dev", "joint_vel", "heading", "yaw_rate",
-                "hold_ang_vel", "hold_joint_vel", "hold_action_rate", "hold_pose", "termination",
+                "hold_ang_vel", "hold_joint_vel", "hold_action_rate", "hold_pose", "hold_upright", "termination",
             ]
         }
         self.set_debug_vis(self.cfg.debug_vis)
@@ -230,7 +240,9 @@ class R1IronManEnv(DirectRLEnv):
         jp = d.joint_pos.torch[:, self._ctrl_joint_ids] - d.default_joint_pos.torch[:, self._ctrl_joint_ids]
         joint_dev = torch.sum(torch.square(jp / self._joint_scales), dim=1)  # in units of each joint's action range
         hold = torch.exp(-torch.square(dist / self.cfg.hold_radius))  # 1 at the goal, ~0 beyond 2 * hold_radius
-        pose_err = torch.sum(torch.square((jp - self._hover_pose) / self._joint_scales), dim=1) / NUM_CONTROL_JOINTS
+        pose_err = torch.sum(self._pose_weights * torch.square((jp - self._hover_pose) / self._joint_scales), dim=1) / NUM_CONTROL_JOINTS
+        torso_up = quat_apply(d.body_link_quat_w.torch[:, self._torso_body_id], self._z_axis.expand(self.num_envs, 3))
+        torso_tilt_deg = torch.rad2deg(torch.acos(torso_up[:, 2].clamp(-1.0, 1.0)))
         act_rate = torch.sum(torch.square(self._actions - self._prev_actions), dim=1)
         dt = self.step_dt
         rewards = {
@@ -259,6 +271,9 @@ class R1IronManEnv(DirectRLEnv):
             * dt,
             "hold_action_rate": hold * act_rate * self.cfg.hold_action_rate_reward_scale * dt,
             "hold_pose": hold * pose_err * self.cfg.hold_pose_reward_scale * dt,
+            "hold_upright": hold * torch.exp(-torch.square(torso_tilt_deg / self.cfg.hold_upright_width_deg))
+            * self.cfg.hold_upright_reward_scale
+            * dt,
             "termination": self.reset_terminated.float() * self.cfg.termination_penalty,
         }
         self._prev_dist[:] = dist

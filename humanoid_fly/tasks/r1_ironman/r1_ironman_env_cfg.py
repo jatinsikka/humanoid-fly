@@ -162,6 +162,12 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     # low-pass filter on the joint position targets (first order, time constant tau): high-frequency limb jitter
     # can't reach the joints. 0 = off. 0.05 s = 29% new command per 20 ms policy step.
     joint_target_filter_tau = 0.0  # [s]
+    # per-joint weights of the hold_pose term ({regex: weight}, unmatched joints 1.0; None = all 1.0)
+    hold_pose_joint_weights = None
+    # upright bonus at the goal, on the torso: hold * exp(-(torso tilt / width)^2). 0 = off (stages 1-4)
+    hold_upright_reward_scale = 0.0
+    hold_upright_width_deg = 3.0
+    torso_body = "waist_yaw_link"
 
     # ---- heading command (v1 tasks): face the direction of the current goal -------------------
     heading_command = False  # adds sin/cos of the yaw error to the observations
@@ -218,6 +224,25 @@ class R1IronManHoldEnvCfg(R1IronManHeadingSmoothEnvCfg):
     hold_pose_reward_scale = -3.0
     hover_pose_file = "hover_pose.json"
     joint_target_filter_tau = 0.05
+
+
+@configclass
+class R1IronManUprightEnvCfg(R1IronManHoldEnvCfg):
+    """Stage 5 (--resume the stage-4 final): hold the natural upright pose at the goal, not its own learned one.
+
+    Stage 4 pulled the limbs toward the pose stage 3 happened to hover in (hover_pose.json), which is lopsided
+    (one arm flung out and back, hips uneven), so it froze a crooked stance about 5 deg off vertical. The target is
+    now a designed pose (hover_pose_upright.json, from scripts/pose_check.py): legs straight and together, arms
+    hanging straight down ~8 deg out, hand jets within 4 deg of vertical; checked to hover with the torso upright
+    (feet + hand throttles balance it with <0.5 deg of lean). Ankles and wrists are weighted lightly: they are its
+    gimbals for fine balance.
+    """
+
+    hover_pose_file = "hover_pose_upright.json"
+    hold_pose_reward_scale = -6.0
+    hold_pose_joint_weights = {".*_ankle_.*": 0.2, ".*_wrist_.*": 0.2}
+    hold_upright_reward_scale = 4.0  # +4/s with the torso exactly vertical at the goal, +1.5/s at 3 deg, ~0 past 6
+    hold_upright_width_deg = 3.0
 
 
 @configclass

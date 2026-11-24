@@ -48,6 +48,8 @@ parser.add_argument("--seed", type=int, default=0)
 parser.add_argument("--env", nargs="*", default=[], metavar="KEY=VALUE",
                     help="override env cfg fields (Python literals), e.g. \"booster_mounts=((-0.1, 0.12, 0.3), (-0.1, -0.12, 0.3))\"")
 parser.add_argument("--wandb", action="store_true")
+parser.add_argument("--pose_target", default="humanoid_fly/tasks/r1_ironman/hover_pose_upright.json",
+                    help="Iron Man: hover-pose target for the 'pose error' column (offsets from the default pose)")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
 app = AppLauncher(args).app
@@ -60,6 +62,7 @@ import torch  # noqa: E402
 from rsl_rl.runners import OnPolicyRunner  # noqa: E402
 
 import humanoid_fly  # noqa: E402,F401
+from isaaclab.utils.math import quat_apply  # noqa: E402
 from isaaclab_rl.rsl_rl import RslRlVecEnvWrapper, handle_deprecated_rsl_rl_cfg  # noqa: E402
 from isaaclab_tasks.utils.parse_cfg import load_cfg_from_registry, parse_env_cfg  # noqa: E402
 
@@ -113,6 +116,23 @@ def noisy(obs, std):
 # the whole condition runs in inference mode: the env's buffers become inference tensors once the policy steps
 # under inference_mode, and resetting them outside it raises "Inplace update to inference tensor"
 @torch.inference_mode()
+def _setup_pose_metrics():
+    """Torso body + target pose for the Iron Man posture columns (None for the jet)."""
+    if not hasattr(u, "_ctrl_joint_ids"):
+        return None, None
+    tid = u._robot.find_bodies(getattr(u.cfg, "torso_body", "waist_yaw_link"))[0][0]
+    tgt = None
+    if args.pose_target and os.path.exists(args.pose_target):
+        offs = json.load(open(args.pose_target))["offsets"]
+        names = [u._robot.joint_names[i] for i in u._ctrl_joint_ids]
+        tgt = torch.tensor([offs[n] for n in names], device=dev)
+    return tid, tgt
+
+
+torso_id, pose_target = _setup_pose_metrics()
+z_axis = torch.tensor([[0.0, 0.0, 1.0]], device=dev)
+
+
 def run(cond):
     u.cfg.air_start_prob = 1.0 if cond == "midair" else 0.0
     scale = {"thrust_low": 1.0 - args.thrust_delta, "thrust_high": 1.0 + args.thrust_delta}.get(cond, 1.0)
@@ -125,7 +145,7 @@ def run(cond):
 
     crashed = torch.zeros(N, dtype=torch.bool, device=dev)  # crashed at least once (later episodes don't count)
     n_crashes = 0
-    errs, reached, tilts, angv, rolls, jspd, dact = [], [], [], [], [], [], []
+    errs, reached, tilts, angv, rolls, jspd, dact, ttilt, perr = [], [], [], [], [], [], [], [], []
     recovered_at = torch.full((N,), float("nan"), device=dev)
     calm_steps = torch.zeros(N, device=dev)
     next_push = torch.rand(N, device=dev) * 2 * args.push_every
@@ -149,6 +169,12 @@ def run(cond):
             # limb fidget while holding: RMS joint speed over all joints, mean |change| of each action per step
             jspd.append(d.joint_vel.torch[ok].square().mean(dim=1).sqrt().cpu())
             dact.append((u._actions - u._prev_actions)[ok].abs().mean(dim=1).cpu())
+            if torso_id is not None:  # torso tilt from vertical [deg]
+                up = quat_apply(d.body_link_quat_w.torch[ok, torso_id], z_axis.expand(int(ok.sum()), 3))
+                ttilt.append(torch.rad2deg(torch.acos(up[:, 2].clamp(-1, 1))).cpu())
+            if pose_target is not None:  # RMS distance from the target pose over the controlled joints [deg]
+                jp = d.joint_pos.torch[ok][:, u._ctrl_joint_ids] - d.default_joint_pos.torch[ok][:, u._ctrl_joint_ids]
+                perr.append(torch.rad2deg((jp - pose_target).square().mean(dim=1).sqrt()).cpu())
         if phase == 0:  # end of a goal: did it get there
             reached.append((dist[ok] < 0.3).float().cpu())
         angv.append(w[ok].norm(dim=1).cpu())
@@ -171,6 +197,7 @@ def run(cond):
 
     cat = lambda xs: torch.cat(xs).numpy() if xs and sum(len(x) for x in xs) else np.array([np.nan])  # noqa: E731
     e, r, ti, av, ro, js, da = cat(errs), cat(reached), cat(tilts), cat(angv), cat(rolls), cat(jspd), cat(dact)
+    tt, pe = cat(ttilt), cat(perr)
     res = {
         "robots": N,
         "crash_rate": crashed.float().mean().item(),
@@ -183,6 +210,8 @@ def run(cond):
         "roll_rate_hover_mean": float(np.mean(ro)),
         "joint_speed_hover_rms": float(np.mean(js)),
         "action_change_hover_mean": float(np.mean(da)),
+        "torso_tilt_hover_deg": float(np.mean(tt)),
+        "pose_error_hover_deg": float(np.mean(pe)),
     }
     if cond == "midair":
         rec = recovered_at[~torch.isnan(recovered_at)].cpu().numpy()
@@ -210,18 +239,24 @@ lines = [
     f"Checkpoint `{args.checkpoint}` on `{args.task}`, {N} robots x {args.seconds:g} s per condition, deterministic policy."
     " Crash rate = robots that crashed at least once. Hover error / tilt / roll rate = last 1.5 s of each goal,"
     " robots that hadn't crashed. Goals reached = within 0.3 m at the goal switch. Limb speed = RMS joint speed"
-    " while holding (same window); action change = mean |change| of each action per 20 ms step.",
+    " while holding (same window); action change = mean |change| of each action per 20 ms step. Torso tilt and pose"
+    " error (RMS over the controlled joints, vs. the upright target pose) while holding, Iron Man only.",
     "",
     "| condition | crash rate | goals reached | hover error mean / p95 | tilt | roll rate (hover) | limb speed (hover)"
-    " | action change (hover) | recovery |",
-    "|---|---|---|---|---|---|---|---|---|",
+    " | action change (hover) | torso tilt (hover) | pose error (hover) | recovery |",
+    "|---|---|---|---|---|---|---|---|---|---|---|",
 ]
+def fmt(v, unit):
+    return "-" if v != v else f"{v:.1f}{unit}"  # NaN -> "-"
+
+
 for cond, r in results.items():
     rec = (f"{r['recovered_frac']:.0%} in {r['recovery_time_median_s']:.2f} s (median)" if "recovered_frac" in r else "-")
     lines.append(
         f"| {labels[cond]} | {r['crash_rate']:.1%} | {r['goals_reached']:.0%} | {100 * r['hover_error_mean_m']:.1f} / "
         f"{100 * r['hover_error_p95_m']:.1f} cm | {r['tilt_mean_deg']:.1f} deg | {r['roll_rate_hover_mean']:.2f} rad/s | "
-        f"{r['joint_speed_hover_rms']:.2f} rad/s | {r['action_change_hover_mean']:.3f} | {rec} |"
+        f"{r['joint_speed_hover_rms']:.2f} rad/s | {r['action_change_hover_mean']:.3f} | "
+        f"{fmt(r['torso_tilt_hover_deg'], ' deg')} | {fmt(r['pose_error_hover_deg'], ' deg')} | {rec} |"
     )
 table = "\n".join(lines)
 print(table)

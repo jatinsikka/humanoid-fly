@@ -57,3 +57,14 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManHoldPPORunnerCfg",
     },
 )
+
+# Stage 5: hold the natural upright pose at the goal (designed target pose, torso-upright bonus); --resume stage 4.
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-Upright-v1",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManUprightEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManUprightPPORunnerCfg",
+    },
+)
