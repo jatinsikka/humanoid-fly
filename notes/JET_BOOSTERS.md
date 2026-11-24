@@ -9,7 +9,8 @@ Two gimballed jet boosters on the R1's back ("Pacific Rim" style). Demo: [media/
 - **Boosters**: simulated as one global force + torque on `waist_yaw_link` (torque = (nozzle - CoM) x F); casings and
   flames are visual markers only. Total thrust-to-weight 2.0 (284 N each), 2-axis gimbal +-25 deg, first-order lags
   (throttle 80 ms spool-up, gimbal 40 ms servo).
-- **Mount**: at shoulder-blade height `(-0.10, +-0.12, 0.30)` in the torso frame, with the neutral thrust axis canted
+- **Mount**: at shoulder-blade height `(-0.10, +-0.12, 0.30)` in the torso frame (v2, the runs below; v3 widens
+  it to `+-0.20`, see "Open issue"), with the neutral thrust axis canted
   ~13.5 deg so zero gimbal thrusts straight through the whole-body CoM (which sits near the hips). The robot hovers
   leaning forward, like a real jetpack pilot.
 - **Actions (6)**: throttle L/R, gimbal pitch L/R, gimbal roll L/R. The body is held in its default pose by PD
@@ -56,6 +57,9 @@ while holding 0.29 rad/s.
 - Roll wobble (~1.5 rad/s) is unchanged by stage 2. Suspected cause: roll authority comes mostly from differential
   throttle with the boosters only 0.24 m apart. Next: widen the spacing to ~0.40 m (about 1.7x the roll torque) and
   retrain stage 1 + 2, or try a roll-specific penalty, or the whole-body variant so arms/legs help balance.
+- **2026-11-23: v3 mount, 0.40 m apart (`+-0.20`), in the config now, not trained yet.** The cant through the CoM is
+  unchanged (the mounts moved sideways only). Compare roll rate against run 11 (1.47 rad/s) with `scripts/eval.py`.
+  `checkpoints/jet/` still holds the v2 policies; replay them with the old mount for a faithful comparison.
 
 ## Training clips
 `media/training_clips/`: `jet_v1_mount_spinning.mp4` (run 5, the spinning bang-bang policy), `jet_iter0.mp4`,

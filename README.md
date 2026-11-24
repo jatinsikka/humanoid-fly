@@ -32,7 +32,8 @@ The R1 (29 kg) gets two gimballed jet boosters on the back of its torso and lear
 | `Humanoid-Fly-R1-Jet-Smooth-v0` | 6 | stage 2 (`--resume`), smoother; final policy `checkpoints/jet/model_1499.pt` |
 | `Humanoid-Fly-R1-Jet-WholeBody-v0` | 6 + 24 joint offsets | policy also moves arms/legs/waist |
 
-Boosters: total thrust-to-weight 2.0 (284 N each), ±25° gimbal, 80 ms spool lag. They're simulated as a force + torque
+Boosters: mounted 0.40 m apart (v3, 2026-11-23; the trained v2 policies in `checkpoints/jet/` used 0.24 m and roll
+~1.5 rad/s, see notes/JET_BOOSTERS.md), total thrust-to-weight 2.0 (284 N each), ±25° gimbal, 80 ms spool lag. They're simulated as a force + torque
 on `waist_yaw_link`. The jetpack you see (two casings and a pack plate on the back, a flame out of each casing) is
 visual only, attached to the torso link so it moves rigidly with the robot; it adds no mass and has no collisions.
 Half the episodes start standing on the ground (take-off), half start mid-air with random tilt/velocity (recovery).
@@ -116,7 +117,8 @@ the showcase can show the robot learning to balance (it goes from falling over t
 ~/IsaacLab/isaaclab.sh -p scripts/showcase.py --headless --task Humanoid-Fly-R1-IronMan-Smooth-v1 \
     --checkpoints checkpoints/ironman/model_2599.pt --labels "Iron Man (old policy)" --out_dir /tmp/vis_ironman --seconds 6
 ~/IsaacLab/isaaclab.sh -p scripts/showcase.py --headless --task Humanoid-Fly-R1-Jet-Smooth-v0 \
-    --checkpoints checkpoints/jet/model_1499.pt --labels "Jet pack (old policy)" --out_dir /tmp/vis_jet --seconds 6
+    --checkpoints checkpoints/jet/model_1499.pt --labels "Jet pack (old policy)" --out_dir /tmp/vis_jet --seconds 6 \
+    --env "booster_mounts=((-0.10, 0.12, 0.30), (-0.10, -0.12, 0.30))"   # the old policy was trained with the narrow mount
 ```
 Look for `flames attached` / `jetpack attached` and `live flames on` in the log, and no `WARNING`.
 
@@ -139,11 +141,19 @@ bash scripts/train.sh --task Humanoid-Fly-R1-Jet-Smooth-v0 --resume $(last logs/
                                                                                                      # -> logs/r1_jet_smooth/<E>; final = $(last logs/r1_jet_smooth/<E>)
 ```
 
-**3. Evaluation** (waypoint tour from a standing take-off; note what it does and doesn't test, below):
+**3. Evaluation.** `scripts/eval.py` is the one to report: 512 robots x 12 s under each condition (standing take-off
+with random goals, mid-air starts, velocity kicks, thrust -10% / +10%, observation noise), crash rate, goals reached,
+hover error, tilt, roll rate and mid-air recovery time, as a markdown table. Training never saw pushes, model error or
+sensor noise, so those rows show what to train on next.
 ```bash
-~/IsaacLab/isaaclab.sh -p scripts/demo.py --headless --task Humanoid-Fly-R1-IronMan-v1 --checkpoint <final> --no_video --num_envs 256
-~/IsaacLab/isaaclab.sh -p scripts/demo.py --headless --task Humanoid-Fly-R1-Jet-v0 --checkpoint <final> --no_video --num_envs 256
+~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-IronMan-Smooth-v1 --checkpoint <final> --out media/eval/ironman
+~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-Jet-Smooth-v0 --checkpoint <final> --out media/eval/jet
+# the old (v2, narrow mount) jet policy, for comparison:
+~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-Jet-Smooth-v0 --checkpoint checkpoints/jet/model_1499.pt \
+    --out media/eval/jet_v2 --env "booster_mounts=((-0.10, 0.12, 0.30), (-0.10, -0.12, 0.30))"
 ```
+`scripts/demo.py` (the fixed 7-waypoint tour with a chase camera) is still there for the tour video; its "0 / 256
+crashes" is not a robustness number (see below).
 
 **4. Showcase videos** (36 robots taking off from the ground; same starts and goals per checkpoint):
 ```bash
@@ -167,11 +177,16 @@ Needs only numpy + matplotlib (runs on a laptop too). The short dips in reward /
 line are a logging artifact of resuming (episode statistics restart), not the policy getting worse.
 
 **6. Keep the results:** copy the new final checkpoints + `params/` into `checkpoints/`, commit `media/showcase/*`
-(gifs, before_after.mp4, metrics.json) and `media/curves/*`, update the result tables above, and back up `logs/` as a
-GitHub release before shutting the instance down.
+(gifs, before_after.mp4, metrics.json), `media/curves/*` and `media/eval/*`, update the result tables above, then
+back up every log and checkpoint before shutting the instance down:
+```bash
+bash scripts/backup_logs.sh            # GitHub release raw-logs-<date> (needs gh auth); restore instructions in the script
+```
+`eval.py`, `showcase.py` and `plot_curves.py` also take `--wandb` to put their tables / videos / plots in the W&B
+project next to the training runs.
 
-**What the evaluation does and doesn't show.** `demo.py` flies one fixed 7-waypoint tour from a standing take-off;
+**What `demo.py` does and doesn't show.** It flies one fixed 7-waypoint tour from a standing take-off;
 across the 256 robots only the starting heading differs, and the policy is deterministic, with no noise, pushes or
-randomized physics. "0 / 256 crashes" therefore means "reliably flies this tour", not a robustness result. Training
-itself does include mid-air recovery starts and random goals.
+randomized physics. "0 / 256 crashes" therefore means "reliably flies this tour", not a robustness result: use
+`scripts/eval.py` for that.
 

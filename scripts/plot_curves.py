@@ -138,6 +138,7 @@ def main():
     ap.add_argument("runs", nargs="+", help="run folders (containing events.out.tfevents.*), in training order")
     ap.add_argument("--out", required=True, help="output prefix, e.g. media/curves/ironman")
     ap.add_argument("--title", default=None)
+    ap.add_argument("--wandb", action="store_true", help="also upload the plots to W&B (project humanoid_fly)")
     ap.add_argument("--smooth", type=float, default=0.9, help="EMA factor for the bold line (raw shown faint); 0 = off")
     args = ap.parse_args()
 
@@ -230,6 +231,15 @@ def main():
         w.writerow(["iteration"] + tags)
         for s in steps:
             w.writerow([s] + [m[t].get(s, "") for t in tags])
+    if args.wandb:
+        import wandb
+
+        run = wandb.init(project="humanoid_fly", job_type="curves", name=f"curves-{title}", config={"runs": args.runs})
+        imgs = {"curves/training": wandb.Image(f"{args.out}_training.png")}
+        if terms:
+            imgs["curves/reward_terms"] = wandb.Image(f"{args.out}_reward_terms.png")
+        wandb.log(imgs)
+        run.finish()
     print(f"wrote {args.out}_training.png, {args.out}_reward_terms.png, {args.out}.csv "
           f"({len(steps)} iterations, stages start at {[s for s, _ in starts]})")
 

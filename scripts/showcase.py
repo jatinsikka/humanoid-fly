@@ -14,6 +14,7 @@ before_after.gif + clip_<i>.gif (small, for web pages), and metrics.json (crashe
 """
 
 import argparse
+import ast
 import json
 import os
 
@@ -36,6 +37,9 @@ parser.add_argument("--height", type=int, default=720)
 parser.add_argument("--camera", type=float, nargs=4, default=(6.0, 2.5, 6.0, 1.6), metavar=("BACK", "HEIGHT", "AHEAD", "LOOK_H"),
                     help="visuals.grid_camera: distance behind env 0, eye height, look-at distance past env 0, look-at height")
 parser.add_argument("--gif_width", type=int, default=480)
+parser.add_argument("--env", nargs="*", default=[], metavar="KEY=VALUE",
+                    help="override env cfg fields (Python literals), e.g. the old jet mount for old checkpoints")
+parser.add_argument("--wandb", action="store_true", help="also upload the videos + metrics to W&B (project humanoid_fly)")
 parser.add_argument("--no_live_flames", action="store_true", help="fixed flame length (as in training clips)")
 AppLauncher.add_app_launcher_args(parser)
 args = parser.parse_args()
@@ -60,6 +64,15 @@ assert len(labels) == len(args.checkpoints), "need one label per checkpoint"
 os.makedirs(args.out_dir, exist_ok=True)
 
 env_cfg = parse_env_cfg(args.task, device=args.device, num_envs=args.num_envs)
+for kv in args.env:
+    k, v = kv.split("=", 1)
+    assert hasattr(env_cfg, k), f"env cfg has no field {k}"
+    try:
+        v = ast.literal_eval(v)
+    except (ValueError, SyntaxError):
+        pass
+    setattr(env_cfg, k, v)
+    print(f"[SHOWCASE] env override {k} = {v!r}")
 env_cfg.scene.env_spacing = args.env_spacing
 env_cfg.scene.clone_in_fabric = False  # every robot in USD, so flames can follow each robot's throttle
 env_cfg.live_flames = not args.no_live_flames
@@ -180,5 +193,17 @@ if len(clips) >= 2:
 with open(os.path.join(args.out_dir, "metrics.json"), "w") as f:
     json.dump({"task": args.task, "seed": args.seed, "air_start_prob": args.air_start_prob, "clips": metrics}, f, indent=2)
 print(f"[SHOWCASE] metrics in {os.path.join(args.out_dir, 'metrics.json')}")
+if args.wandb:
+    import wandb
+
+    run = wandb.init(project="humanoid_fly", job_type="showcase", name=f"showcase-{args.task}",
+                     config={"task": args.task, "checkpoints": args.checkpoints, "labels": labels, "seed": args.seed})
+    media = {f"showcase/{label}": wandb.Video(os.path.join(args.out_dir, f"clip_{i}.mp4"), format="mp4")
+             for i, label in enumerate(labels)}
+    if len(clips) >= 2:
+        media["showcase/before_after"] = wandb.Video(os.path.join(args.out_dir, "before_after.mp4"), format="mp4")
+    wandb.log({**media, **{f"showcase/{lbl}/{k}": v for lbl, m in metrics.items() for k, v in m.items()
+                           if isinstance(v, (int, float))}})
+    run.finish()
 env.close()
 app.close()

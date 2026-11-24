@@ -85,7 +85,10 @@ class R1JetEnvCfg(DirectRLEnvCfg):
     # v1 had them at (-0.14, +-0.12, 0.10): only 0.22 m above the whole-body CoM (which sits at z=-0.125, near the
     # hips), so pointing the thrust through the CoM needed a 38 deg gimbal (limit 25). No static hover existed and
     # every policy learned to spin at ~6 rad/s to average the torque out.
-    booster_mounts = ((-0.10, 0.12, 0.30), (-0.10, -0.12, 0.30))
+    # v2 (runs 10-11, checkpoints/jet/) had them 0.24 m apart (y = +-0.12): it flew, but rolled ~1.5 rad/s, since roll
+    # comes mostly from differential throttle and that lever was short. v3 (2026-11-23): 0.40 m apart, ~1.7x the roll
+    # torque. Old jet checkpoints were trained with +-0.12; to replay them faithfully set booster_mounts back.
+    booster_mounts = ((-0.10, 0.20, 0.30), (-0.10, -0.20, 0.30))
     # cant the boosters' neutral axis so zero gimbal thrusts straight through the CoM (as real jetpacks do); the
     # robot then hovers leaning forward by the cant angle and keeps the full gimbal range for control
     cant_through_com = True
