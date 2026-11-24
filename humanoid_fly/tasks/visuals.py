@@ -49,19 +49,28 @@ def unit(v) -> tuple[float, float, float]:
 # ---------------------------------------------------------------- authoring (call in _setup_scene, before cloning)
 def find_links(robot_root: str, names) -> dict | None:
     """{name: prim} for the named links under robot_root, or None if one is missing or not editable."""
-    from pxr import Usd
+    from pxr import Usd, UsdPhysics
 
     stage = sim_utils.get_current_stage()
     root = stage.GetPrimAtPath(robot_root)
     if not root.IsValid():
         print(f"[visuals] no prim at {robot_root}")
         return None
-    by_name = {p.GetName(): p for p in Usd.PrimRange(root)}
+    # Newer URDF importers nest the links (pelvis_link/waist_roll_link/...) and give each link a mesh child with the
+    # same name that is an instance (e.g. .../left_ankle_roll_link/left_ankle_roll_link). Several prims can share a
+    # name, so prefer the rigid body, then the first (shallowest) editable prim.
+    by_name = {}
+    for p in Usd.PrimRange(root):
+        if p.IsInstance() or p.IsInstanceProxy():
+            continue
+        rigid = p.HasAPI(UsdPhysics.RigidBodyAPI)
+        if p.GetName() not in by_name or (rigid and not by_name[p.GetName()][1]):
+            by_name[p.GetName()] = (p, rigid)
     out = {}
     for name in names:
-        p = by_name.get(name)
-        if p is None or p.IsInstance() or p.IsInstanceProxy():
-            print(f"[visuals] link {name} under {robot_root} is missing or inside an instanceable asset")
+        p = by_name.get(name, (None,))[0]
+        if p is None:
+            print(f"[visuals] link {name} under {robot_root} not found (or only as an instanceable mesh)")
             return None
         out[name] = p
     return out
