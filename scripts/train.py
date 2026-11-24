@@ -100,26 +100,21 @@ if args.resume:
 dump_yaml(os.path.join(log_dir, "params", "env.yaml"), env_cfg)
 dump_yaml(os.path.join(log_dir, "params", "agent.yaml"), agent_cfg)
 
-def learn(n: int, first: bool):
-    """runner.learn for n iterations; keeps the iteration count continuous across calls (each call saves
-    model_<iteration>.pt at its end, which is how the early checkpoints get written)."""
-    start = runner.current_learning_iteration
-    runner.learn(num_learning_iterations=n, init_at_random_ep_len=first)
-    if runner.current_learning_iteration == start + n - 1:  # rsl_rl versions that stop at the last done iteration
-        runner.current_learning_iteration = start + n
-
-
-total = agent_cfg.max_iterations
-done, first = 0, True
+# Extra early checkpoints (model_5, model_10, ... up to --early_save_until) for the learning-to-balance clips.
+# One runner.learn() call: rsl_rl 5 opens a new W&B run per learn() call and closes it at the end, so the
+# learning loop must not be split into chunks. Instead hook the per-iteration log call and save from there.
 if args.early_save_every > 0 and not args.resume:
-    until = min(args.early_save_until, total)
-    print(f"[INFO] extra checkpoints every {args.early_save_every} iterations up to iteration {until}")
-    while done < until:
-        n = min(args.early_save_every, until - done)
-        learn(n, first)
-        done, first = done + n, False
-        runner.save(os.path.join(log_dir, f"model_{done}.pt"))  # exact names: model_5, model_10, ...
-if done < total:
-    learn(total - done, first)
+    every, until = args.early_save_every, min(args.early_save_until, agent_cfg.max_iterations)
+    print(f"[INFO] extra checkpoints every {every} iterations up to iteration {until}")
+    _log = runner.logger.log
+
+    def _log_and_save(*a, **kw):
+        _log(*a, **kw)
+        it = kw.get("it", a[0] if a else None)
+        if it and it % every == 0 and it <= until and it % agent_cfg.save_interval != 0:
+            runner.save(os.path.join(log_dir, f"model_{it}.pt"))
+
+    runner.logger.log = _log_and_save
+runner.learn(num_learning_iterations=agent_cfg.max_iterations, init_at_random_ep_len=True)
 env.close()
 app.close()

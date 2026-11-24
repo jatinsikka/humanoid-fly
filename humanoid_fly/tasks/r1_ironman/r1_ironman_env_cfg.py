@@ -80,7 +80,9 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     # (scene.clone_in_fabric=False, as scripts/showcase.py sets) and live_flames is on: then they follow the throttle.
     thruster_vis = "attached"
     attached_flame_throttle = 0.5  # hover is ~0.48
-    live_flames = True
+    # off in training: with 4096 robots in USD (newer Isaac Lab keeps them there) the per-step USD writes stall
+    # training. scripts/showcase.py turns it on for its small grid.
+    live_flames = False
     # training-clip camera (visuals.grid_camera): env 0 in front, the rest of the grid behind it [m]
     camera_back = 7.0
     camera_height = 3.0

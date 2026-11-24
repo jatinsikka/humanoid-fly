@@ -43,7 +43,9 @@ class R1JetEnvCfg(DirectRLEnvCfg):
     # throttle and the gimbal.
     thruster_vis = "attached"
     attached_flame_throttle = 0.5  # hover = 1 / thrust_to_weight = 0.5
-    live_flames = True
+    # off in training: with 4096 robots in USD (newer Isaac Lab keeps them there) the per-step USD writes stall
+    # training. scripts/showcase.py turns it on for its small grid.
+    live_flames = False
     # neutral booster axis for the casings [deg about torso y]. The physics computes it at startup from the CoM
     # (_compute_cant); the env prints a warning if this differs by more than 1 deg, with the value to put here.
     booster_vis_cant_deg = -13.5
