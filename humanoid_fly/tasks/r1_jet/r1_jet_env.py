@@ -70,7 +70,7 @@ class R1JetEnv(DirectRLEnv):
 
         self._episode_sums = {
             k: torch.zeros(n, device=dev)
-            for k in ["pos_coarse", "pos_fine", "progress", "action_bound", "upright", "lin_vel", "ang_vel", "yaw_rate", "action_rate", "throttle", "joint_dev", "termination"]
+            for k in ["pos_coarse", "pos_fine", "progress", "action_bound", "upright", "lin_vel", "ang_vel", "yaw_rate", "action_rate", "throttle", "joint_dev", "hold_ang_vel", "hold_lin_vel", "hold_action_rate", "termination"]
         }
         self.set_debug_vis(self.cfg.debug_vis)
 
@@ -269,6 +269,7 @@ class R1JetEnv(DirectRLEnv):
         tilt = 1.0 - quat_apply(torso_quat, self._thrust_axis_b.expand(self.num_envs, 3))[:, 2]
         joint_dev = torch.sum(torch.square(d.joint_pos.torch - d.default_joint_pos.torch), dim=1)
         dt = self.step_dt
+        hold = torch.exp(-torch.square(dist / self.cfg.hold_radius))
         rewards = {
             "pos_coarse": (1.0 - torch.tanh(dist / 1.5)) * self.cfg.pos_coarse_reward_scale * dt,
             "pos_fine": (1.0 - torch.tanh(dist / 0.3)) * self.cfg.pos_fine_reward_scale * dt,
@@ -285,6 +286,13 @@ class R1JetEnv(DirectRLEnv):
             * dt,
             "throttle": self._throttle.mean(dim=1) * self.cfg.throttle_reward_scale * dt,
             "joint_dev": joint_dev * self.cfg.joint_dev_reward_scale * dt * float(self.cfg.control_joints),
+            # hold at the goal: extra penalties on roll/pitch/yaw rate, drift and jitter that fade in near the goal
+            # (gate = 1 at the goal, ~0.37 at hold_radius, ~0 beyond 2x), so they don't slow the flight between goals
+            "hold_ang_vel": hold * torch.sum(torch.square(d.root_ang_vel_b.torch), dim=1) * self.cfg.hold_ang_vel_reward_scale * dt,
+            "hold_lin_vel": hold * torch.sum(torch.square(d.root_lin_vel_b.torch), dim=1) * self.cfg.hold_lin_vel_reward_scale * dt,
+            "hold_action_rate": hold * torch.sum(torch.square(self._actions - self._prev_actions), dim=1)
+            * self.cfg.hold_action_rate_reward_scale
+            * dt,
             "termination": self.reset_terminated.float() * self.cfg.termination_penalty,
         }
         self._prev_dist[:] = dist

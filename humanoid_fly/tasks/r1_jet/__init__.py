@@ -25,6 +25,17 @@ gym.register(
     },
 )
 
+# Stage 3: settle at the goal (hold-at-goal penalties on roll/pitch/yaw rate, drift, jitter); --resume <stage-2 ckpt>.
+gym.register(
+    id="Humanoid-Fly-R1-Jet-Hold-v0",
+    entry_point=f"{__name__}.r1_jet_env:R1JetEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_jet_env_cfg:R1JetHoldEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1JetHoldPPORunnerCfg",
+    },
+)
+
 # Same task, but the policy also drives the arms, legs and waist (on top of the jets).
 gym.register(
     id="Humanoid-Fly-R1-Jet-WholeBody-v0",

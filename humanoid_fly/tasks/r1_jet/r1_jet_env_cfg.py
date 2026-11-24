@@ -130,6 +130,12 @@ class R1JetEnvCfg(DirectRLEnvCfg):
     # their gradient and the policy gets stuck in bang-bang control (run 5: 95% saturated, 6.5 rad/s spin)
     action_bound_reward_scale = -1.0
     termination_penalty = -5.0  # one-off, not scaled by dt
+    # "hold" terms, gated to the goal (weight exp(-(dist / hold_radius)^2)): stage-2 policies reach the goal but keep
+    # rocking in roll / pitch / yaw (~1.5 rad/s) while hovering there. Off (0) in stages 1-2; stage 3 turns them on.
+    hold_radius = 0.5  # [m]
+    hold_ang_vel_reward_scale = 0.0
+    hold_lin_vel_reward_scale = 0.0
+    hold_action_rate_reward_scale = 0.0
 
     def __post_init__(self):
         n_ctrl = WHOLE_BODY_NUM_JOINTS if self.control_joints else 0
@@ -149,6 +155,19 @@ class R1JetSmoothEnvCfg(R1JetEnvCfg):
     # stage-1 policies spin about their vertical axis at ~6 rad/s (spin averages out the off-centre thrust);
     # at 6 rad/s this costs ~3.6/s, about a fifth of the position reward
     yaw_rate_reward_scale = -0.1
+
+
+@configclass
+class R1JetHoldEnvCfg(R1JetSmoothEnvCfg):
+    """Stage 3: same as stage 2 plus the hold-at-goal penalties, so it settles at the goal instead of rocking.
+
+    At the goal a 1.5 rad/s wobble now costs ~1.5^2 * 1.0 = 2.3/s (plus the ungated 0.15 + 0.1 yaw terms), against
+    ~16/s of position reward there: large enough to matter, small enough that hovering at the goal still pays.
+    """
+
+    hold_ang_vel_reward_scale = -1.0
+    hold_lin_vel_reward_scale = -0.5
+    hold_action_rate_reward_scale = -0.1
 
 
 @configclass

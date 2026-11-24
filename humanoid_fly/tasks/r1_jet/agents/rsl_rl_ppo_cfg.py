@@ -47,6 +47,12 @@ class R1JetSmoothPPORunnerCfg(R1JetPPORunnerCfg):
 
 
 @configclass
+class R1JetHoldPPORunnerCfg(R1JetSmoothPPORunnerCfg):
+    max_iterations = 400
+    experiment_name = "r1_jet_hold"
+
+
+@configclass
 class R1JetWholeBodyPPORunnerCfg(R1JetPPORunnerCfg):
     max_iterations = 3000
     experiment_name = "r1_jet_wholebody"
