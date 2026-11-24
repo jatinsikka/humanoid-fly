@@ -62,3 +62,9 @@ class R1IronManHeadingSmoothPPORunnerCfg(R1IronManPPORunnerCfg):
 
     def __post_init__(self):
         self.algorithm.entropy_coef = 0.0
+
+
+@configclass
+class R1IronManHoldPPORunnerCfg(R1IronManHeadingSmoothPPORunnerCfg):
+    max_iterations = 400
+    experiment_name = "r1_ironman_hold"

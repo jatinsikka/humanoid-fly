@@ -45,3 +45,15 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManHeadingSmoothPPORunnerCfg",
     },
 )
+
+# Stage 4: hold still at the goal (hold-at-goal penalties, hover-pose target, low-pass on joint targets);
+# --resume the stage-3 final. Needs hover_pose.json next to the env (scripts/hover_pose.py).
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-Hold-v1",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManHoldEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManHoldPPORunnerCfg",
+    },
+)

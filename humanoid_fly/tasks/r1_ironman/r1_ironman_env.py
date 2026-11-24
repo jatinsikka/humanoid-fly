@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 import math
+import os
 
 import torch
 import warp as wp
@@ -60,6 +62,19 @@ class R1IronManEnv(DirectRLEnv):
         print(f"[R1IronMan] robot mass {mass:.1f} kg, max thrust per thruster {self._max_thrust.tolist()} N")
         print(f"[R1IronMan] controlled joints: {names}")
 
+        # hover pose for the hold-at-goal pose term (offsets from the default pose, controlled joints)
+        self._hover_pose = torch.zeros(NUM_CONTROL_JOINTS, device=dev)
+        if self.cfg.hover_pose_file:
+            path = os.path.join(os.path.dirname(__file__), self.cfg.hover_pose_file)
+            with open(path) as f:
+                offsets = json.load(f)["offsets"]
+            self._hover_pose[:] = torch.tensor([offsets[nm] for nm in names], device=dev)
+            print(f"[R1IronMan] hover pose from {self.cfg.hover_pose_file}")
+        # first-order low-pass on the joint position targets (cfg.joint_target_filter_tau; 1 = no filtering)
+        tau = self.cfg.joint_target_filter_tau
+        self._target_alpha = 1.0 if tau <= 0 else self.step_dt / (tau + self.step_dt)
+        self._joint_targets = self._robot.data.default_joint_pos.torch.clone()
+
         self._goal_pos_w = torch.zeros(n, 3, device=dev)
         self._target_yaw = torch.zeros(n, device=dev)
         self._prev_dist = torch.zeros(n, device=dev)
@@ -69,7 +84,8 @@ class R1IronManEnv(DirectRLEnv):
             k: torch.zeros(n, device=dev)
             for k in [
                 "pos_coarse", "pos_fine", "progress", "action_bound", "upright", "lin_vel", "ang_vel",
-                "action_rate", "throttle", "joint_dev", "joint_vel", "heading", "yaw_rate", "termination",
+                "action_rate", "throttle", "joint_dev", "joint_vel", "heading", "yaw_rate",
+                "hold_ang_vel", "hold_joint_vel", "hold_action_rate", "hold_pose", "termination",
             ]
         }
         self.set_debug_vis(self.cfg.debug_vis)
@@ -134,7 +150,9 @@ class R1IronManEnv(DirectRLEnv):
 
         targets = self._robot.data.default_joint_pos.torch.clone()
         targets[:, self._ctrl_joint_ids] += self._joint_scales * self._actions[:, 4:]
-        self._robot.set_joint_position_target_index(target=targets)
+        a = self._target_alpha  # in place: the buffer must stay a normal tensor (see scripts/eval.py)
+        self._joint_targets[:] = a * targets + (1.0 - a) * self._joint_targets
+        self._robot.set_joint_position_target_index(target=self._joint_targets)
 
         resample = (self.episode_length_buf % self._goal_resample_steps == 0) & (self.episode_length_buf > 0)
         ids = resample.nonzero(as_tuple=False).squeeze(-1)
@@ -211,6 +229,9 @@ class R1IronManEnv(DirectRLEnv):
         tilt = 1.0 + d.projected_gravity_b.torch[:, 2]
         jp = d.joint_pos.torch[:, self._ctrl_joint_ids] - d.default_joint_pos.torch[:, self._ctrl_joint_ids]
         joint_dev = torch.sum(torch.square(jp / self._joint_scales), dim=1)  # in units of each joint's action range
+        hold = torch.exp(-torch.square(dist / self.cfg.hold_radius))  # 1 at the goal, ~0 beyond 2 * hold_radius
+        pose_err = torch.sum(torch.square((jp - self._hover_pose) / self._joint_scales), dim=1) / NUM_CONTROL_JOINTS
+        act_rate = torch.sum(torch.square(self._actions - self._prev_actions), dim=1)
         dt = self.step_dt
         rewards = {
             "pos_coarse": (1.0 - torch.tanh(dist / 1.5)) * self.cfg.pos_coarse_reward_scale * dt,
@@ -232,6 +253,12 @@ class R1IronManEnv(DirectRLEnv):
             * self.cfg.heading_reward_scale
             * dt,
             "yaw_rate": torch.square(d.root_ang_vel_w.torch[:, 2] - self._desired_yaw_rate()) * self.cfg.yaw_rate_reward_scale * dt,
+            "hold_ang_vel": hold * torch.sum(torch.square(d.root_ang_vel_b.torch), dim=1) * self.cfg.hold_ang_vel_reward_scale * dt,
+            "hold_joint_vel": hold * torch.sum(torch.square(d.joint_vel.torch[:, self._ctrl_joint_ids]), dim=1)
+            * self.cfg.hold_joint_vel_reward_scale
+            * dt,
+            "hold_action_rate": hold * act_rate * self.cfg.hold_action_rate_reward_scale * dt,
+            "hold_pose": hold * pose_err * self.cfg.hold_pose_reward_scale * dt,
             "termination": self.reset_terminated.float() * self.cfg.termination_penalty,
         }
         self._prev_dist[:] = dist
@@ -270,6 +297,7 @@ class R1IronManEnv(DirectRLEnv):
         n = len(env_ids)
         self._actions[env_ids] = 0.0
         self._prev_actions[env_ids] = 0.0
+        self._joint_targets[env_ids] = self._robot.data.default_joint_pos.torch[env_ids]
 
         root_pose = self._robot.data.default_root_pose.torch[env_ids].clone()
         root_vel = torch.zeros(n, 6, device=self.device)

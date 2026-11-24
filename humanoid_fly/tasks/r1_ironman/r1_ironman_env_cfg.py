@@ -148,6 +148,21 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     action_bound_reward_scale = -1.0
     termination_penalty = -5.0  # one-off
 
+    # ---- hold at the goal (stage 4) ------------------------------------------------------------
+    # Penalties weighted by exp(-(dist / hold_radius)^2): full at the goal, ~0.37 at hold_radius, ~0 beyond 2x.
+    # Limbs are Iron Man's steering, so motion is only made expensive once it has arrived. Off (0) before stage 4.
+    hold_radius = 0.5  # [m]
+    hold_ang_vel_reward_scale = 0.0  # * |body angular velocity|^2
+    hold_joint_vel_reward_scale = 0.0  # * sum of controlled-joint speeds^2
+    hold_action_rate_reward_scale = 0.0  # * |action - previous action|^2
+    hold_pose_reward_scale = 0.0  # * mean squared distance from the hover pose, in units of each joint's action range
+    # hover pose (offsets from the default pose, per controlled joint) recorded from a trained policy hovering at its
+    # goals by scripts/hover_pose.py; "" = the default pose. Path relative to this folder.
+    hover_pose_file = ""
+    # low-pass filter on the joint position targets (first order, time constant tau): high-frequency limb jitter
+    # can't reach the joints. 0 = off. 0.05 s = 29% new command per 20 ms policy step.
+    joint_target_filter_tau = 0.0  # [s]
+
     # ---- heading command (v1 tasks): face the direction of the current goal -------------------
     heading_command = False  # adds sin/cos of the yaw error to the observations
     heading_reward_scale = 0.0  # * (1 + cos(yaw error)) / 2
@@ -181,6 +196,28 @@ class R1IronManHeadingSmoothEnvCfg(R1IronManHeadingEnvCfg):
     action_rate_reward_scale = -0.04
     joint_dev_reward_scale = -0.3
     joint_vel_reward_scale = -0.002
+
+
+@configclass
+class R1IronManHoldEnvCfg(R1IronManHeadingSmoothEnvCfg):
+    """Stage 4 (--resume the stage-3 final): settle at the goal instead of steering with constant limb motion.
+
+    Stage 3's heading settings are built in (they were --env overrides). At the goal the stage-3 policy spends only
+    ~2% of its reward on limb-motion penalties (joint speed RMS ~1.7 rad/s), so it never looks for a still pose.
+    At the stage-3 level of fidgeting the hold terms cost ~4/s against ~16/s of position reward at the goal.
+    """
+
+    yaw_rate_reward_scale = -0.5
+    yaw_rate_tracking_gain = 2.0
+    heading_reward_scale = 3.0
+    heading_sharpness = 4.0
+
+    hold_ang_vel_reward_scale = -1.0
+    hold_joint_vel_reward_scale = -0.03
+    hold_action_rate_reward_scale = -0.5
+    hold_pose_reward_scale = -3.0
+    hover_pose_file = "hover_pose.json"
+    joint_target_filter_tau = 0.05
 
 
 @configclass

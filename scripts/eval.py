@@ -125,7 +125,7 @@ def run(cond):
 
     crashed = torch.zeros(N, dtype=torch.bool, device=dev)  # crashed at least once (later episodes don't count)
     n_crashes = 0
-    errs, reached, tilts, angv, rolls = [], [], [], [], []
+    errs, reached, tilts, angv, rolls, jspd, dact = [], [], [], [], [], [], []
     recovered_at = torch.full((N,), float("nan"), device=dev)
     calm_steps = torch.zeros(N, device=dev)
     next_push = torch.rand(N, device=dev) * 2 * args.push_every
@@ -146,6 +146,9 @@ def run(cond):
             errs.append(dist[ok].cpu())
             tilts.append(tilt[ok].cpu())
             rolls.append(w[ok, 0].abs().cpu())
+            # limb fidget while holding: RMS joint speed over all joints, mean |change| of each action per step
+            jspd.append(d.joint_vel.torch[ok].square().mean(dim=1).sqrt().cpu())
+            dact.append((u._actions - u._prev_actions)[ok].abs().mean(dim=1).cpu())
         if phase == 0:  # end of a goal: did it get there
             reached.append((dist[ok] < 0.3).float().cpu())
         angv.append(w[ok].norm(dim=1).cpu())
@@ -167,7 +170,7 @@ def run(cond):
                 next_push[ids] += torch.empty(len(ids), device=dev).uniform_(0.5, 1.5) * args.push_every
 
     cat = lambda xs: torch.cat(xs).numpy() if xs and sum(len(x) for x in xs) else np.array([np.nan])  # noqa: E731
-    e, r, ti, av, ro = cat(errs), cat(reached), cat(tilts), cat(angv), cat(rolls)
+    e, r, ti, av, ro, js, da = cat(errs), cat(reached), cat(tilts), cat(angv), cat(rolls), cat(jspd), cat(dact)
     res = {
         "robots": N,
         "crash_rate": crashed.float().mean().item(),
@@ -178,6 +181,8 @@ def run(cond):
         "tilt_mean_deg": float(np.mean(ti)),
         "ang_vel_mean": float(np.mean(av)),
         "roll_rate_hover_mean": float(np.mean(ro)),
+        "joint_speed_hover_rms": float(np.mean(js)),
+        "action_change_hover_mean": float(np.mean(da)),
     }
     if cond == "midair":
         rec = recovered_at[~torch.isnan(recovered_at)].cpu().numpy()
@@ -204,16 +209,19 @@ labels = {
 lines = [
     f"Checkpoint `{args.checkpoint}` on `{args.task}`, {N} robots x {args.seconds:g} s per condition, deterministic policy."
     " Crash rate = robots that crashed at least once. Hover error / tilt / roll rate = last 1.5 s of each goal,"
-    " robots that hadn't crashed. Goals reached = within 0.3 m at the goal switch.",
+    " robots that hadn't crashed. Goals reached = within 0.3 m at the goal switch. Limb speed = RMS joint speed"
+    " while holding (same window); action change = mean |change| of each action per 20 ms step.",
     "",
-    "| condition | crash rate | goals reached | hover error mean / p95 | tilt | roll rate (hover) | recovery |",
-    "|---|---|---|---|---|---|---|",
+    "| condition | crash rate | goals reached | hover error mean / p95 | tilt | roll rate (hover) | limb speed (hover)"
+    " | action change (hover) | recovery |",
+    "|---|---|---|---|---|---|---|---|---|",
 ]
 for cond, r in results.items():
     rec = (f"{r['recovered_frac']:.0%} in {r['recovery_time_median_s']:.2f} s (median)" if "recovered_frac" in r else "-")
     lines.append(
         f"| {labels[cond]} | {r['crash_rate']:.1%} | {r['goals_reached']:.0%} | {100 * r['hover_error_mean_m']:.1f} / "
-        f"{100 * r['hover_error_p95_m']:.1f} cm | {r['tilt_mean_deg']:.1f} deg | {r['roll_rate_hover_mean']:.2f} rad/s | {rec} |"
+        f"{100 * r['hover_error_p95_m']:.1f} cm | {r['tilt_mean_deg']:.1f} deg | {r['roll_rate_hover_mean']:.2f} rad/s | "
+        f"{r['joint_speed_hover_rms']:.2f} rad/s | {r['action_change_hover_mean']:.3f} | {rec} |"
     )
 table = "\n".join(lines)
 print(table)
