@@ -1,0 +1,87 @@
+{
+  "task": "Humanoid-Fly-R1-Jet-Smooth-v0",
+  "checkpoint": "checkpoints/jet/model_1499.pt",
+  "num_envs": 512,
+  "seconds": 12.0,
+  "seed": 0,
+  "env_overrides": [
+    "booster_mounts=((-0.10, 0.12, 0.30), (-0.10, -0.12, 0.30))"
+  ],
+  "push_dv": [
+    0.5,
+    1.5
+  ],
+  "push_every": 2.0,
+  "thrust_delta": 0.1,
+  "obs_noise": 0.05,
+  "results": {
+    "takeoff": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.012766620144248009,
+      "hover_error_p95_m": 0.018623024225234985,
+      "tilt_mean_deg": 26.148942947387695,
+      "ang_vel_mean": 1.7742313146591187,
+      "roll_rate_hover_mean": 1.7259924411773682
+    },
+    "midair": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.01271605584770441,
+      "hover_error_p95_m": 0.0185603816062212,
+      "tilt_mean_deg": 26.274242401123047,
+      "ang_vel_mean": 1.8082658052444458,
+      "roll_rate_hover_mean": 1.705102562904358,
+      "recovered_frac": 0.00390625,
+      "recovery_time_median_s": 3.4200000762939453
+    },
+    "pushes": {
+      "robots": 512,
+      "crash_rate": 0.001953125,
+      "crashes_per_robot_minute": 0.009765625,
+      "goals_reached": 0.9960899353027344,
+      "hover_error_mean_m": 0.05974571779370308,
+      "hover_error_p95_m": 0.2118932157754898,
+      "tilt_mean_deg": 26.76470375061035,
+      "ang_vel_mean": 1.8747535943984985,
+      "roll_rate_hover_mean": 1.567833423614502
+    },
+    "thrust_low": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.017507178708910942,
+      "hover_error_p95_m": 0.02722063660621643,
+      "tilt_mean_deg": 25.501705169677734,
+      "ang_vel_mean": 1.716267466545105,
+      "roll_rate_hover_mean": 1.6237667798995972
+    },
+    "thrust_high": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.025282520800828934,
+      "hover_error_p95_m": 0.03196331486105919,
+      "tilt_mean_deg": 26.532028198242188,
+      "ang_vel_mean": 1.812018632888794,
+      "roll_rate_hover_mean": 1.769409418106079
+    },
+    "obs_noise": {
+      "robots": 512,
+      "crash_rate": 0.18359375,
+      "crashes_per_robot_minute": 1.03515625,
+      "goals_reached": 0.32250839471817017,
+      "hover_error_mean_m": 0.4022674858570099,
+      "hover_error_p95_m": 0.7644268870353699,
+      "tilt_mean_deg": 30.967741012573242,
+      "ang_vel_mean": 2.4122860431671143,
+      "roll_rate_hover_mean": 1.1338825225830078
+    }
+  }
+}

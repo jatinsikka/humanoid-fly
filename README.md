@@ -9,17 +9,20 @@ reinforcement learning (PPO, 4096 parallel simulations on one GPU). Two variants
   steers only by pointing its feet and swinging its arms. ([full tour video](media/ironman_final_tour.mp4))
 - **Jet pack**: two gimballed boosters on the back. ([demo video](media/jet_booster_demo.mp4))
 
-Robustness eval (`scripts/eval.py`, 2026-11-24 retrain): 512 robots x 12 s per condition, random goals, deterministic
+Robustness eval (`scripts/eval.py`, 2026-11-24 retrain; W&B project `humanoid_fly`): 512 robots x 12 s per condition, random goals, deterministic
 policy. Full tables: `media/eval/*.md`.
 
-| policy | crashes: take-off / mid-air start | hover error | roll rate holding | crashes under velocity kicks | crashes with sensor noise |
+| policy | crashes: take-off / mid-air | hover error | roll rate holding | limb speed holding | crashes: velocity kicks / sensor noise |
 |---|---|---|---|---|---|
-| Iron Man, stage 3 | 0 % / 0 % | 1.0 cm | 0.16 rad/s | 0.2 % | 0 % |
-| Jet pack, stage 2 | 0 % / 0 % | 1.1 cm | 1.30 rad/s | 0.2 % | 36 % |
+| Iron Man, stage 3 | 0 % / 0 % | 1.0 cm | 0.16 rad/s | 1.19 rad/s | 0.2 % / 0 % |
+| **Iron Man, stage 4 (hold)** `checkpoints/ironman_hold/model_2996.pt` | 0 % / 0 % | 1.6 cm | **0.04 rad/s** | **0.08 rad/s** | 0 % / 0 % |
+| Jet pack, stage 2 | 0 % / 0 % | 1.1 cm | 1.30 rad/s | - | 0.2 % / 36 % |
+| **Jet pack, stage 3 (hold)** `checkpoints/jet_hold/model_1897.pt` | 0 % / 0 % | 1.1 cm | **0.43 rad/s** | - | 0.2 % / 10.5 % |
 
-Both reach every goal, but neither holds still once there: the jet rocks in roll/pitch/yaw, and Iron Man keeps
-moving its arms and legs. Stage 3 of the jet (`Jet-Hold-v0`) and stage 4 of Iron Man (`IronMan-Hold-v1`) add
-hold-at-goal terms for that (see "Reward terms" below).
+Stage 3 Iron Man and stage 2 jet reached every goal but didn't hold still there: Iron Man kept moving its arms and
+legs, the jet kept rocking in roll/pitch/yaw. The hold stages (see "Reward terms" below) fixed that: Iron Man's limbs
+are 15x stiller and it rolls 4x less, the jet rolls 3x less, at the cost of ~0.5 cm hover error for Iron Man.
+Showcase videos (36 robots, iteration 0 vs final, side by side): `media/showcase/*/before_after.mp4`.
 How it was built, what went wrong and the lessons: [notes/NOTES.md](notes/NOTES.md) (both variants, Iron Man detail)
 and [notes/JET_BOOSTERS.md](notes/JET_BOOSTERS.md) (jet design, run-by-run history, open issues).
 Training progression videos: [iter 200](media/ironman_progress_1_iter200.mp4),

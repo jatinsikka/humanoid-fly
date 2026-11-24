@@ -1,0 +1,97 @@
+{
+  "task": "Humanoid-Fly-R1-IronMan-Smooth-v1",
+  "checkpoint": "logs/r1_ironman_v1_smooth/2026-11-24_06-46-05/model_2597.pt",
+  "num_envs": 512,
+  "seconds": 12.0,
+  "seed": 0,
+  "env_overrides": [],
+  "push_dv": [
+    0.5,
+    1.5
+  ],
+  "push_every": 2.0,
+  "thrust_delta": 0.1,
+  "obs_noise": 0.05,
+  "results": {
+    "takeoff": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.010325269773602486,
+      "hover_error_p95_m": 0.018615586683154106,
+      "tilt_mean_deg": 7.603712558746338,
+      "ang_vel_mean": 0.6685282588005066,
+      "roll_rate_hover_mean": 0.16012680530548096,
+      "joint_speed_hover_rms": 1.1928273439407349,
+      "action_change_hover_mean": 0.05622686445713043
+    },
+    "midair": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.01035171840339899,
+      "hover_error_p95_m": 0.01848301850259304,
+      "tilt_mean_deg": 7.530163764953613,
+      "ang_vel_mean": 0.6827106475830078,
+      "roll_rate_hover_mean": 0.1624828577041626,
+      "joint_speed_hover_rms": 1.1874843835830688,
+      "action_change_hover_mean": 0.05600344389677048,
+      "recovered_frac": 1.0,
+      "recovery_time_median_s": 1.1799999475479126
+    },
+    "pushes": {
+      "robots": 512,
+      "crash_rate": 0.001953125,
+      "crashes_per_robot_minute": 0.009765625,
+      "goals_reached": 0.9980449676513672,
+      "hover_error_mean_m": 0.04559875652194023,
+      "hover_error_p95_m": 0.17647749185562134,
+      "tilt_mean_deg": 6.533855438232422,
+      "ang_vel_mean": 0.7975108623504639,
+      "roll_rate_hover_mean": 0.2649387717247009,
+      "joint_speed_hover_rms": 1.2622026205062866,
+      "action_change_hover_mean": 0.0626629963517189
+    },
+    "thrust_low": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.03301358222961426,
+      "hover_error_p95_m": 0.04252034053206444,
+      "tilt_mean_deg": 7.704545021057129,
+      "ang_vel_mean": 0.6757911443710327,
+      "roll_rate_hover_mean": 0.1628425568342209,
+      "joint_speed_hover_rms": 1.1891815662384033,
+      "action_change_hover_mean": 0.055174414068460464
+    },
+    "thrust_high": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.024324340745806694,
+      "hover_error_p95_m": 0.034004878252744675,
+      "tilt_mean_deg": 6.966325759887695,
+      "ang_vel_mean": 0.7013128399848938,
+      "roll_rate_hover_mean": 0.18347768485546112,
+      "joint_speed_hover_rms": 1.1637396812438965,
+      "action_change_hover_mean": 0.056287944316864014
+    },
+    "obs_noise": {
+      "robots": 512,
+      "crash_rate": 0.0,
+      "crashes_per_robot_minute": 0.0,
+      "goals_reached": 1.0,
+      "hover_error_mean_m": 0.09077854454517365,
+      "hover_error_p95_m": 0.1491905152797699,
+      "tilt_mean_deg": 6.643836975097656,
+      "ang_vel_mean": 2.606142282485962,
+      "roll_rate_hover_mean": 0.6378211379051208,
+      "joint_speed_hover_rms": 2.3575756549835205,
+      "action_change_hover_mean": 0.35605648159980774
+    }
+  }
+}

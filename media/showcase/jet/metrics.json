@@ -1,0 +1,39 @@
+{
+  "task": "Humanoid-Fly-R1-Jet-Smooth-v0",
+  "seed": 0,
+  "air_start_prob": 0.0,
+  "clips": {
+    "Iteration 0": {
+      "checkpoint": "logs/r1_jet/2026-11-24_07-50-22/model_0.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 355,
+      "crashes_per_robot": 9.86111111111111,
+      "fraction_above_1m_last_half": 0.0
+    },
+    "Iteration 20": {
+      "checkpoint": "logs/r1_jet/2026-11-24_07-50-22/model_20.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Iteration 30": {
+      "checkpoint": "logs/r1_jet/2026-11-24_07-50-22/model_30.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Final (iteration 1498)": {
+      "checkpoint": "logs/r1_jet_smooth/2026-11-24_09-30-07/model_1498.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    }
+  }
+}

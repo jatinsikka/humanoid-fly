@@ -1,0 +1,39 @@
+{
+  "task": "Humanoid-Fly-R1-IronMan-Smooth-v1",
+  "seed": 0,
+  "air_start_prob": 0.0,
+  "clips": {
+    "Iteration 0": {
+      "checkpoint": "logs/r1_ironman_v1/2026-11-24_04-20-27/model_0.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 176,
+      "crashes_per_robot": 4.888888888888889,
+      "fraction_above_1m_last_half": 0.0
+    },
+    "Iteration 25": {
+      "checkpoint": "logs/r1_ironman_v1/2026-11-24_04-20-27/model_25.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 108,
+      "crashes_per_robot": 3.0,
+      "fraction_above_1m_last_half": 0.7493333361148834
+    },
+    "Iteration 45": {
+      "checkpoint": "logs/r1_ironman_v1/2026-11-24_04-20-27/model_45.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Final (iteration 2597)": {
+      "checkpoint": "logs/r1_ironman_v1_smooth/2026-11-24_06-46-05/model_2597.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    }
+  }
+}
