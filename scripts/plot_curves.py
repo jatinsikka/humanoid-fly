@@ -7,7 +7,8 @@ and the plots mark where each stage starts.
     python scripts/plot_curves.py logs/r1_ironman_v1/<run> logs/r1_ironman_v1_smooth/<run> --out media/curves/ironman
     python scripts/plot_curves.py logs/r1_jet/<run> --out media/curves/jet --title "Jet pack"
 
-Writes <out>_training.png (2x2 overview), <out>_reward_terms.png and <out>.csv.
+Writes <out>_summary.png (one chart: reward + value loss, the convergence picture), <out>_training.png (2x2 overview),
+<out>_reward_terms.png and <out>.csv.
 """
 
 import argparse
@@ -209,6 +210,36 @@ def main():
     fig.savefig(f"{args.out}_training.png", dpi=130)
     plt.close(fig)
 
+    # one-chart summary: episode return (the reward summed over an episode) and the value loss, for slides / the
+    # portfolio. Reward climbing then flattening while the loss falls = converged.
+    xr, yr = series(m, "Train/mean_reward")
+    if len(xr):
+        fig, ax = plt.subplots(figsize=(9, 4.8))
+        ax.plot(xr, yr, color="C0", alpha=0.2, lw=0.8)
+        ax.plot(xr, ema(yr, args.smooth), color="C0", lw=2.2, label="mean episode reward")
+        ax.set_ylabel("mean episode reward (sum over episode)", color="C0")
+        ax.tick_params(axis="y", colors="C0")
+        xl, yl = series(m, "Loss/value")
+        if len(xl):
+            ax2 = ax.twinx()
+            ax2.plot(xl, ema(yl, args.smooth), color="C1", lw=1.6, label="value loss")
+            ax2.set_yscale("log")
+            ax2.set_ylabel("value loss (log scale)", color="C1")
+            ax2.tick_params(axis="y", which="both", colors="C1")
+        for i, (x0, name) in enumerate(starts):
+            if i > 0:
+                ax.axvline(x0, color="0.5", ls="--", lw=0.8)
+                ax.text(x0, ax.get_ylim()[0], f" stage {i + 1}", color="0.4", fontsize=8, va="bottom")
+        final = float(np.mean(yr[-max(1, len(yr) // 50):]))
+        ax.annotate(f"final ≈ {final:.0f}", (xr[-1], ema(yr, args.smooth)[-1]), xytext=(-110, 14),
+                    textcoords="offset points", fontsize=9, color="C0", arrowprops=dict(arrowstyle="-", color="C0"))
+        ax.grid(alpha=0.3)
+        ax.set_xlabel("PPO iteration")
+        ax.set_title(f"{title}: reward and value loss over training")
+        fig.tight_layout()
+        fig.savefig(f"{args.out}_summary.png", dpi=150)
+        plt.close(fig)
+
     terms = sorted(t for t in m if t.startswith("Episode_Reward/"))
     if terms:
         fig, ax = plt.subplots(figsize=(12, 6))
@@ -236,11 +267,13 @@ def main():
 
         run = wandb.init(project="humanoid_fly", job_type="curves", name=f"curves-{title}", config={"runs": args.runs})
         imgs = {"curves/training": wandb.Image(f"{args.out}_training.png")}
+        if len(xr):
+            imgs["curves/summary"] = wandb.Image(f"{args.out}_summary.png")
         if terms:
             imgs["curves/reward_terms"] = wandb.Image(f"{args.out}_reward_terms.png")
         wandb.log(imgs)
         run.finish()
-    print(f"wrote {args.out}_training.png, {args.out}_reward_terms.png, {args.out}.csv "
+    print(f"wrote {args.out}_summary.png, {args.out}_training.png, {args.out}_reward_terms.png, {args.out}.csv "
           f"({len(steps)} iterations, stages start at {[s for s, _ in starts]})")
 
 
