@@ -33,7 +33,7 @@
   }
  },
  {
-  "name": "straight_out10",
+  "name": "straight_out8",
   "joints": {
    ".*_hip_pitch_joint": 0.0,
    ".*_hip_roll_joint": 0.0,
@@ -48,11 +48,11 @@
    ".*_elbow_joint": 1.57
   },
   "solve_arms": {
-   "out_deg": 10
+   "out_deg": 8
   }
  },
  {
-  "name": "straight_out15",
+  "name": "straight_out12",
   "joints": {
    ".*_hip_pitch_joint": 0.0,
    ".*_hip_roll_joint": 0.0,
@@ -67,7 +67,26 @@
    ".*_elbow_joint": 1.57
   },
   "solve_arms": {
-   "out_deg": 15
+   "out_deg": 12
+  }
+ },
+ {
+  "name": "straight_out16",
+  "joints": {
+   ".*_hip_pitch_joint": 0.0,
+   ".*_hip_roll_joint": 0.0,
+   ".*_hip_yaw_joint": 0.0,
+   ".*_knee_joint": 0.0,
+   ".*_ankle_pitch_joint": 0.0,
+   ".*_ankle_roll_joint": 0.0,
+   "waist_.*": 0.0,
+   ".*_shoulder_pitch_joint": 0.0,
+   "left_shoulder_roll_joint": -0.1,
+   "right_shoulder_roll_joint": 0.1,
+   ".*_elbow_joint": 1.57
+  },
+  "solve_arms": {
+   "out_deg": 16
   }
  }
 ]

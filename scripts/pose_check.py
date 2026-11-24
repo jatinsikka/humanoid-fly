@@ -75,6 +75,13 @@ def angle_from_down(v):
     return float(np.degrees(np.arccos(np.clip(-v[2] / np.linalg.norm(v), -1, 1))))
 
 
+# what the policy can command: default pose +- each controlled joint's action scale (clamped to the joint limits)
+reach = lim.copy()
+for k, i in enumerate(u._ctrl_joint_ids):
+    d0, sc = float(rob.data.default_joint_pos.torch[0, i]), float(u._joint_scales[k])
+    reach[i] = [max(lim[i, 0], d0 - sc), min(lim[i, 1], d0 + sc)]
+
+
 def place(qc, steps):
     """Pin the base upright at 2 m and hold the joints at qc for a few physics steps (gravity is off)."""
     root = rob.data.default_root_pose.torch[:1].clone()
@@ -112,10 +119,10 @@ def solve_arms(q, spec):
     sign = {"shoulder_pitch": 1, "shoulder_roll": -1, "shoulder_yaw": -1, "elbow": 1, "wrist_roll": -1}
     q = q.clone()
 
-    def setv(k, v):
-        v = float(np.clip(v, lim[J[k], 0], lim[J[k], 1]))
+    def setv(k, v):  # only angles the policy can reach (default +- action scale)
+        v = float(np.clip(v, reach[J[k], 0], reach[J[k], 1]))
         q[J[k]] = v
-        q[R[k]] = float(np.clip(sign[k] * v, lim[R[k], 0], lim[R[k], 1]))
+        q[R[k]] = float(np.clip(sign[k] * v, reach[R[k], 0], reach[R[k], 1]))
 
     def cost():
         place(q, steps=3)
@@ -197,8 +204,11 @@ for pose in poses:
                                                 round(float(np.degrees(np.arctan2(ua[0], -ua[2]))), 1)],
                       "forearm_out_fwd_deg": [round(float(np.degrees(np.arctan2(out * fa[1], -fa[2]))), 1),
                                               round(float(np.degrees(np.arctan2(fa[0], -fa[2]))), 1)]}
+    unreachable = [f"{names[i]} {float(qc[i]):+.2f} (reach {reach[i, 0]:+.2f}..{reach[i, 1]:+.2f})"
+                   for i in u._ctrl_joint_ids if not reach[i, 0] - 1e-3 <= float(qc[i]) <= reach[i, 1] + 1e-3]
     res = {
         "name": pose["name"],
+        "unreachable_by_policy": unreachable,
         "clipped_to_limits": clipped,
         "upper_arm_from_down_deg": [round(arms[s]["upper_arm_from_down_deg"], 1) for s in ("left", "right")],
         "forearm_from_down_deg": [round(arms[s]["forearm_from_down_deg"], 1) for s in ("left", "right")],
@@ -214,6 +224,7 @@ for pose in poses:
     }
     results.append(res)
     if args.write_target and args.write_target[0] == pose["name"]:
+        assert not unreachable, f"target pose has joints the policy can't reach: {unreachable}"
         ctrl = [names[i] for i in u._ctrl_joint_ids]
         tgt = {"offsets": {n: round(float(qc[names.index(n)] - default[names.index(n)]), 5) for n in ctrl},
                "absolute": {n: round(float(qc[names.index(n)]), 5) for n in ctrl},

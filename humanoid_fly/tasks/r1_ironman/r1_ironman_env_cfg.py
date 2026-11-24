@@ -232,10 +232,11 @@ class R1IronManUprightEnvCfg(R1IronManHoldEnvCfg):
 
     Stage 4 pulled the limbs toward the pose stage 3 happened to hover in (hover_pose.json), which is lopsided
     (one arm flung out and back, hips uneven), so it froze a crooked stance about 5 deg off vertical. The target is
-    now a designed pose (hover_pose_upright.json, from scripts/pose_check.py): legs straight and together, arms
-    hanging straight down ~8 deg out, hand jets within 4 deg of vertical; checked to hover with the torso upright
-    (feet + hand throttles balance it with <0.5 deg of lean). Ankles and wrists are weighted lightly: they are its
-    gimbals for fine balance.
+    now a designed pose (hover_pose_upright.json, scripts/pose_check.py pose "straight_out16"): legs straight and
+    together, arms down at the sides (upper arms ~21 deg out, elbows relaxed ~36 deg so the hands sit by the thighs),
+    hand jets within 2 deg of vertical; checked to hover with the torso upright (<0.5 deg of lean) and to be within
+    the policy's reach (fully straight arms would need ~110 deg of shoulder yaw, the actions allow +-0.4 rad).
+    Ankles and wrists are weighted lightly: they are its gimbals for fine balance.
     """
 
     hover_pose_file = "hover_pose_upright.json"
