@@ -222,16 +222,21 @@ def main():
         xl, yl = series(m, "Loss/value")
         if len(xl):
             ax2 = ax.twinx()
-            ax2.plot(xl, ema(yl, args.smooth), color="C1", lw=1.6, label="value loss")
+            # Once nothing crashes, all 4096 robots time out together every 12 s (= 25 iterations), so the value loss
+            # swings with that period. Average over one period to show the trend; raw loss faint behind it.
+            w = 25
+            trend = np.convolve(yl, np.ones(w) / w, mode="valid") if len(yl) > w else yl
+            ax2.plot(xl, yl, color="C1", alpha=0.15, lw=0.6)
+            ax2.plot(xl[len(xl) - len(trend):], trend, color="C1", lw=1.8, label="value loss (25-iteration average)")
             ax2.set_yscale("log")
-            ax2.set_ylabel("value loss (log scale)", color="C1")
+            ax2.set_ylabel("value loss, 25-iteration average (log)", color="C1")
             ax2.tick_params(axis="y", which="both", colors="C1")
         for i, (x0, name) in enumerate(starts):
             if i > 0:
                 ax.axvline(x0, color="0.5", ls="--", lw=0.8)
                 ax.text(x0, ax.get_ylim()[0], f" stage {i + 1}", color="0.4", fontsize=8, va="bottom")
         final = float(np.mean(yr[-max(1, len(yr) // 50):]))
-        ax.annotate(f"final ≈ {final:.0f}", (xr[-1], ema(yr, args.smooth)[-1]), xytext=(-110, 14),
+        ax.annotate(f"final ≈ {final:.0f}", (xr[-1], ema(yr, args.smooth)[-1]), xytext=(-120, -40),
                     textcoords="offset points", fontsize=9, color="C0", arrowprops=dict(arrowstyle="-", color="C0"))
         ax.grid(alpha=0.3)
         ax.set_xlabel("PPO iteration")
