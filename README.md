@@ -16,7 +16,8 @@ policy. Full tables: `media/eval/*.md`.
 |---|---|---|---|---|---|---|
 | Iron Man, stage 3 | 0 % / 0 % | 1.0 cm | 0.16 rad/s | 1.19 rad/s | 8.9° / 18.0° | 0.2 % / 0 % |
 | Iron Man, stage 4 (hold) `checkpoints/ironman_hold/model_2996.pt` | 0 % / 0 % | 1.6 cm | 0.04 rad/s | 0.08 rad/s | 15.3° / 21.3° | 0 % / 0 % |
-| **Iron Man, stage 5 (upright)** `checkpoints/ironman_upright/model_3595.pt` | 0 % / 0 % | **0.8 cm** | 0.10 rad/s | 0.11 rad/s | **0.8° / 13.1°** | 0 % / 0 % |
+| Iron Man, stage 5 (upright) `checkpoints/ironman_upright/model_3595.pt` | 0 % / 0 % | 0.8 cm | 0.10 rad/s | 0.11 rad/s | 0.8° / 13.1° | 0 % / 0 % |
+| **Iron Man, stage 6 (stance)** `checkpoints/ironman_stance/model_4194.pt` | 0 % / 0 % | 1.5 cm | 0.10 rad/s | 0.39 rad/s (arms free) | **0.9°** / 14.0° (legs within ~4°, hip pitch ~9°) | 0 % / 0 % |
 | Jet pack, stage 2 | 0 % / 0 % | 1.1 cm | 1.30 rad/s | - | - | 0.2 % / 36 % |
 | **Jet pack, stage 3 (hold)** `checkpoints/jet_hold/model_1897.pt` | 0 % / 0 % | 1.1 cm | **0.43 rad/s** | - | - | 0.2 % / 10.5 % |
 
@@ -26,18 +27,21 @@ are 15x stiller and it rolls 4x less, the jet rolls 3x less, at the cost of ~0.5
 Stage 4 Iron Man held still but bent at the waist (torso 15° off vertical), because it was pulled toward its own
 lopsided stage-3 pose. Stage 5 pulls it toward a designed upright stance instead (torso vertical, arms and legs
 pointing down, solved by `scripts/pose_check.py` within the policy's reach) and rewards an upright torso: the torso is
-now within 1° of vertical. Open issue: the limbs only got part of the way to that stance (13° RMS off, mostly the
-shoulders and the right hip: the left arm stays out, the right arm forward), so it still looks a bit crooked. Next
-step if picked up again: a stronger pose pull plus a left/right symmetry term, or retrain from scratch with the stance
-as the default pose. Close-up of stages 3 / 4 / 5: `media/showcase/ironman_closeup/before_after.mp4`.
+now within 1° of vertical. But it froze into a mannequin pose with the legs splayed (right hip 24° forward), because
+the arms dominated the pose term and all motion was penalised. Stage 6 pulls only the legs and waist to the stance
+(legs straight down and together), leaves the arms free with almost no motion cost so the hands do the fine
+balancing, and loosens the stillness terms so the body may sway a little: legs now within ~4° of straight and
+together (hip pitch ~9° fore/aft), torso still within 1°. The arms' 14° "pose error" is by design (no arm target).
+Close-ups: stages 3 / 4 / 5 `media/showcase/ironman_closeup/before_after.mp4`, stage 5 vs 6
+`media/showcase/ironman_stance_closeup/before_after.mp4`.
 Showcase videos (36 robots, iteration 0 vs final, side by side): `media/showcase/*/before_after.mp4`.
 How it was built, what went wrong and the lessons: [notes/NOTES.md](notes/NOTES.md) (both variants, Iron Man detail)
 and [notes/JET_BOOSTERS.md](notes/JET_BOOSTERS.md) (jet design, run-by-run history, open issues).
 Training progression videos: [iter 200](media/ironman_progress_1_iter200.mp4),
 [iter 800](media/ironman_progress_2_iter800.mp4), [with heading command](media/ironman_progress_3_heading_iter500.mp4).
 Best policies with their exact configs: `checkpoints/`. Short training clips: `media/training_clips/`.
-Every raw checkpoint, log and video of the 2026-11-24 retrain (stages 1-5, 1.7 GB): the `raw-logs-2026-11-24-stage5`
-GitHub release; the earlier runs: `raw-logs-2026-11-09` (886 MB). Extract into the repo root.
+Every raw checkpoint, log and video of the 2026-11-24 retrain (stages 1-6, 1.9 GB): the `raw-logs-2026-11-25-stage6`
+GitHub release (stages 1-5 only: `raw-logs-2026-11-24-stage5`); the earlier runs: `raw-logs-2026-11-09` (886 MB). Extract into the repo root.
 
 ## The RL problem (both variants)
 - **Timing:** policy at 50 Hz, physics at 200 Hz (each action held for 4 physics steps). Episodes up to 12 s
@@ -73,12 +77,12 @@ Stages are fine-tunes: each resumes the previous one and changes only the weight
 | `joint_vel` | joint speeds squared (Iron Man) | -0.0005 → -0.002 | - |
 | `heading` | `((1 + cos yaw error) / 2) ^ sharpness`, face the next goal (Iron Man v1) | +2 (sharpness 1) → 3 (sharpness 4) in stage 3 | - |
 | `yaw_rate` | Iron Man: yaw rate vs. a target turn rate `clamp(gain * yaw error, +-1.5)`; jet: plain yaw-rate penalty | -0.1 → -0.5 (gain 2) in stage 3 | 0 → -0.1 |
-| `hold_ang_vel` | angular velocity squared, near the goal only | 0 → -1.0 in stage 4 | 0 → -1.0 in stage 3 |
+| `hold_ang_vel` | angular velocity squared, near the goal only | 0 → -1.0 in stage 4 → -0.5 in stage 6 | 0 → -1.0 in stage 3 |
 | `hold_lin_vel` | linear velocity squared, near the goal only | - | 0 → -0.5 in stage 3 |
-| `hold_joint_vel` | joint speeds squared, near the goal only | 0 → -0.03 in stage 4 | - |
-| `hold_action_rate` | action change squared, near the goal only | 0 → -0.5 in stage 4 | 0 → -0.1 in stage 3 |
-| `hold_pose` | distance from the target hover pose, near the goal only (stage 5: designed upright stance, wrists/ankles weighted 0.2) | 0 → -3.0 in stage 4 → -6.0 in stage 5 | - |
-| `hold_upright` | torso (`waist_yaw_link`) tilt bonus `exp(-(tilt / 3°)^2)`, near the goal only | 0 → +4.0 in stage 5 | - |
+| `hold_joint_vel` | joint speeds squared, near the goal only (stage 6: arms weighted 0.1) | 0 → -0.03 in stage 4 | - |
+| `hold_action_rate` | action change squared, near the goal only | 0 → -0.5 in stage 4 → -0.2 in stage 6 | 0 → -0.1 in stage 3 |
+| `hold_pose` | distance from the target hover pose, near the goal only (stage 5: designed upright stance, wrists/ankles weighted 0.2; stage 6: legs + waist only, ankles 0.3, arms 0) | 0 → -3.0 in stage 4 → -6.0 in stage 5 → -10.0 in stage 6 | - |
+| `hold_upright` | torso (`waist_yaw_link`) tilt bonus `exp(-(tilt / width)^2)`, near the goal only | 0 → +4.0 in stage 5 (width 3°, 5° in stage 6) | - |
 | `termination` | crash (one-off) | -5 | -5 |
 
 "Near the goal only" = multiplied by `exp(-(dist / 0.5 m)^2)`: 1 at the goal, 0.37 at 0.5 m, ~0 past 1 m, so the
@@ -115,6 +119,7 @@ A new goal every 6 s; episodes are 12 s long. Tune everything in `humanoid_fly/t
 | `Humanoid-Fly-R1-IronMan-Smooth-v0` / `-Smooth-v1` | stage 2 (`--resume` a stage-1 checkpoint): stronger upright/ang-vel/action-rate/pose penalties |
 | `Humanoid-Fly-R1-IronMan-Hold-v1` | stage 4 (`--resume` the stage-3 final): stage 3's heading settings built in, plus hold-at-goal terms, hover-pose target and joint-target filter |
 | `Humanoid-Fly-R1-IronMan-Upright-v1` | stage 5 (`--resume` the stage-4 final): hold a designed upright stance (`hover_pose_upright.json`) plus a torso-upright bonus at the goal |
+| `Humanoid-Fly-R1-IronMan-Stance-v1` | stage 6 (`--resume` the stage-5 final): legs straight down and together at the goal, arms free to balance, slight sway allowed |
 
 Four thrusters fixed to the limbs, no gimbals: one under each foot (`*_ankle_roll_link`, 0.75 x weight each) and one
 in each hand (`*_wrist_roll_link`, exhaust out past the fingertips, 0.30 x weight each); total thrust-to-weight 2.1,
@@ -219,6 +224,9 @@ bash scripts/train.sh --task Humanoid-Fly-R1-IronMan-Hold-v1 --resume $(last log
     --write_target straight_out16 humanoid_fly/tasks/r1_ironman/hover_pose_upright.json
 bash scripts/train.sh --task Humanoid-Fly-R1-IronMan-Upright-v1 --resume $(last logs/r1_ironman_hold/<H>) \
     --max_iterations 600                                                                             # -> logs/r1_ironman_upright/<U>; final = $(last logs/r1_ironman_upright/<U>)
+# stage 6, Iron Man stance (legs down + together, hands balancing)
+bash scripts/train.sh --task Humanoid-Fly-R1-IronMan-Stance-v1 --resume $(last logs/r1_ironman_upright/<U>) \
+    --max_iterations 600                                                                             # -> logs/r1_ironman_stance/<V>; final = $(last logs/r1_ironman_stance/<V>)
 ```
 
 **2. Jet pack** (2 stages):
@@ -239,6 +247,7 @@ sensor noise, so those rows show what to train on next.
 ~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-IronMan-Smooth-v1 --checkpoint <stage-3 final> --out media/eval/ironman
 ~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-IronMan-Hold-v1 --checkpoint <stage-4 final> --out media/eval/ironman_hold
 ~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-IronMan-Upright-v1 --checkpoint <stage-5 final> --out media/eval/ironman_upright
+~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-IronMan-Stance-v1 --checkpoint <stage-6 final> --out media/eval/ironman_stance
 ~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-Jet-Smooth-v0 --checkpoint <stage-2 final> --out media/eval/jet
 ~/IsaacLab/isaaclab.sh -p scripts/eval.py --headless --task Humanoid-Fly-R1-Jet-Hold-v0 --checkpoint <stage-3 final> --out media/eval/jet_hold
 # the old (v2, narrow mount) jet policy, for comparison:
