@@ -164,6 +164,7 @@ class R1IronManEnvCfg(DirectRLEnvCfg):
     joint_target_filter_tau = 0.0  # [s]
     # per-joint weights of the hold_pose term ({regex: weight}, unmatched joints 1.0; None = all 1.0)
     hold_pose_joint_weights = None
+    hold_joint_vel_joint_weights = None  # {regex: weight} for hold_joint_vel, default 1 per joint
     # upright bonus at the goal, on the torso: hold * exp(-(torso tilt / width)^2). 0 = off (stages 1-4)
     hold_upright_reward_scale = 0.0
     hold_upright_width_deg = 3.0
@@ -244,6 +245,35 @@ class R1IronManUprightEnvCfg(R1IronManHoldEnvCfg):
     hold_pose_joint_weights = {".*_ankle_.*": 0.2, ".*_wrist_.*": 0.2}
     hold_upright_reward_scale = 4.0  # +4/s with the torso exactly vertical at the goal, +1.5/s at 3 deg, ~0 past 6
     hold_upright_width_deg = 3.0
+
+
+@configclass
+class R1IronManStanceEnvCfg(R1IronManUprightEnvCfg):
+    """Stage 6 (--resume the stage-5 final): Iron Man stance at the goal: legs straight down and together, torso
+    upright with a little natural wobble, hands free to balance (like palm repulsors).
+
+    Stage 5 pulled every limb to the target and penalised all motion, so it froze into a mannequin pose, and since the
+    arms dominated the pose term it kept the legs splayed (right hip 24 deg forward, left leg 7 deg out). Here only
+    the legs and waist are pulled to the target (hips/knees/waist full weight, ankles light: they gimbal the boot jets),
+    the arms have no pose target and their motion is barely penalised, and the stillness terms are loosened so the
+    body may sway a little. With the legs together the roll authority comes from the hands, which is the look we want.
+    """
+
+    hold_pose_reward_scale = -10.0
+    hold_pose_joint_weights = {
+        ".*_shoulder_.*": 0.0,
+        ".*_elbow_.*": 0.0,
+        ".*_wrist_.*": 0.0,
+        ".*_ankle_.*": 0.3,
+    }
+    hold_joint_vel_joint_weights = {
+        ".*_shoulder_.*": 0.1,
+        ".*_elbow_.*": 0.1,
+        ".*_wrist_.*": 0.1,
+    }
+    hold_ang_vel_reward_scale = -0.5
+    hold_action_rate_reward_scale = -0.2
+    hold_upright_width_deg = 5.0  # a few degrees of sway still earns most of the bonus
 
 
 @configclass

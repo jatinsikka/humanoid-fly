@@ -68,3 +68,14 @@ gym.register(
         "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManUprightPPORunnerCfg",
     },
 )
+
+# Stage 6: Iron Man stance at the goal (legs straight down and together, hands free, slight sway ok); --resume stage 5.
+gym.register(
+    id="Humanoid-Fly-R1-IronMan-Stance-v1",
+    entry_point=f"{__name__}.r1_ironman_env:R1IronManEnv",
+    disable_env_checker=True,
+    kwargs={
+        "env_cfg_entry_point": f"{__name__}.r1_ironman_env_cfg:R1IronManStanceEnvCfg",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:R1IronManStancePPORunnerCfg",
+    },
+)

@@ -74,3 +74,9 @@ class R1IronManHoldPPORunnerCfg(R1IronManHeadingSmoothPPORunnerCfg):
 class R1IronManUprightPPORunnerCfg(R1IronManHeadingSmoothPPORunnerCfg):
     max_iterations = 600
     experiment_name = "r1_ironman_upright"
+
+
+@configclass
+class R1IronManStancePPORunnerCfg(R1IronManHeadingSmoothPPORunnerCfg):
+    max_iterations = 600
+    experiment_name = "r1_ironman_stance"

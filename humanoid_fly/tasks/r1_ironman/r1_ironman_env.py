@@ -78,6 +78,13 @@ class R1IronManEnv(DirectRLEnv):
                 for i in wids:
                     w[i] = val
         self._pose_weights = w / w.mean()
+        # per-joint weights of the hold_joint_vel term (not normalised; default 1)
+        self._jv_weights = torch.ones(NUM_CONTROL_JOINTS, device=dev)
+        if self.cfg.hold_joint_vel_joint_weights:
+            for regex, val in self.cfg.hold_joint_vel_joint_weights.items():
+                wids, _, _ = resolve_matching_names_values({regex: val}, names)
+                for i in wids:
+                    self._jv_weights[i] = val
         self._torso_body_id = self._robot.find_bodies(self.cfg.torso_body)[0][0]
         # first-order low-pass on the joint position targets (cfg.joint_target_filter_tau; 1 = no filtering)
         tau = self.cfg.joint_target_filter_tau
@@ -266,7 +273,7 @@ class R1IronManEnv(DirectRLEnv):
             * dt,
             "yaw_rate": torch.square(d.root_ang_vel_w.torch[:, 2] - self._desired_yaw_rate()) * self.cfg.yaw_rate_reward_scale * dt,
             "hold_ang_vel": hold * torch.sum(torch.square(d.root_ang_vel_b.torch), dim=1) * self.cfg.hold_ang_vel_reward_scale * dt,
-            "hold_joint_vel": hold * torch.sum(torch.square(d.joint_vel.torch[:, self._ctrl_joint_ids]), dim=1)
+            "hold_joint_vel": hold * torch.sum(self._jv_weights * torch.square(d.joint_vel.torch[:, self._ctrl_joint_ids]), dim=1)
             * self.cfg.hold_joint_vel_reward_scale
             * dt,
             "hold_action_rate": hold * act_rate * self.cfg.hold_action_rate_reward_scale * dt,
