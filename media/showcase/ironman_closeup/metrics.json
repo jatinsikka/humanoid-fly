@@ -1,0 +1,31 @@
+{
+  "task": "Humanoid-Fly-R1-IronMan-Upright-v1",
+  "seed": 0,
+  "air_start_prob": 0.0,
+  "clips": {
+    "Before stabilization": {
+      "checkpoint": "logs/r1_ironman_v1_smooth/2026-11-24_06-46-05/model_2597.pt",
+      "robots": 4,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Stage 4: still, crooked": {
+      "checkpoint": "logs/r1_ironman_hold/2026-11-24_18-39-09/model_2996.pt",
+      "robots": 4,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Stage 5: upright (iteration 3595)": {
+      "checkpoint": "logs/r1_ironman_upright/2026-11-24_19-54-47//model_3595.pt",
+      "robots": 4,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    }
+  }
+}

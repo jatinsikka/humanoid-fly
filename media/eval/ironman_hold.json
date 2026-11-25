@@ -1,6 +1,6 @@
 {
   "task": "Humanoid-Fly-R1-IronMan-Hold-v1",
-  "checkpoint": "logs/r1_ironman_hold/2026-11-24_18-39-09//model_2996.pt",
+  "checkpoint": "logs/r1_ironman_hold/2026-11-24_18-39-09/model_2996.pt",
   "num_envs": 512,
   "seconds": 12.0,
   "seed": 0,
@@ -24,7 +24,9 @@
       "ang_vel_mean": 0.4333467483520508,
       "roll_rate_hover_mean": 0.03982238098978996,
       "joint_speed_hover_rms": 0.08300317823886871,
-      "action_change_hover_mean": 0.0008889770251698792
+      "action_change_hover_mean": 0.0008889770251698792,
+      "torso_tilt_hover_deg": 15.31326675415039,
+      "pose_error_hover_deg": 21.306673049926758
     },
     "midair": {
       "robots": 512,
@@ -38,6 +40,8 @@
       "roll_rate_hover_mean": 0.03980853036046028,
       "joint_speed_hover_rms": 0.08310528844594955,
       "action_change_hover_mean": 0.0009066893835552037,
+      "torso_tilt_hover_deg": 15.313349723815918,
+      "pose_error_hover_deg": 21.305631637573242,
       "recovered_frac": 1.0,
       "recovery_time_median_s": 1.0
     },
@@ -52,7 +56,9 @@
       "ang_vel_mean": 0.5512775182723999,
       "roll_rate_hover_mean": 0.1296575665473938,
       "joint_speed_hover_rms": 0.4794142246246338,
-      "action_change_hover_mean": 0.025282185524702072
+      "action_change_hover_mean": 0.025282185524702072,
+      "torso_tilt_hover_deg": 14.078974723815918,
+      "pose_error_hover_deg": 20.34520721435547
     },
     "thrust_low": {
       "robots": 512,
@@ -65,7 +71,9 @@
       "ang_vel_mean": 0.4470672011375427,
       "roll_rate_hover_mean": 0.04310457408428192,
       "joint_speed_hover_rms": 0.08794831484556198,
-      "action_change_hover_mean": 0.000553788966499269
+      "action_change_hover_mean": 0.000553788966499269,
+      "torso_tilt_hover_deg": 18.115760803222656,
+      "pose_error_hover_deg": 20.77235984802246
     },
     "thrust_high": {
       "robots": 512,
@@ -78,7 +86,9 @@
       "ang_vel_mean": 0.4405028223991394,
       "roll_rate_hover_mean": 0.045019008219242096,
       "joint_speed_hover_rms": 0.08691909909248352,
-      "action_change_hover_mean": 0.0014868972357362509
+      "action_change_hover_mean": 0.0014868972357362509,
+      "torso_tilt_hover_deg": 14.776199340820312,
+      "pose_error_hover_deg": 21.416532516479492
     },
     "obs_noise": {
       "robots": 512,
@@ -91,7 +101,9 @@
       "ang_vel_mean": 1.2198175191879272,
       "roll_rate_hover_mean": 0.37774354219436646,
       "joint_speed_hover_rms": 0.8854576349258423,
-      "action_change_hover_mean": 0.3301929235458374
+      "action_change_hover_mean": 0.3301929235458374,
+      "torso_tilt_hover_deg": 11.647649765014648,
+      "pose_error_hover_deg": 18.058021545410156
     }
   }
 }

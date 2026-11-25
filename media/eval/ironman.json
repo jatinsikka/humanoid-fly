@@ -24,7 +24,9 @@
       "ang_vel_mean": 0.6685282588005066,
       "roll_rate_hover_mean": 0.16012680530548096,
       "joint_speed_hover_rms": 1.1928273439407349,
-      "action_change_hover_mean": 0.05622686445713043
+      "action_change_hover_mean": 0.05622686445713043,
+      "torso_tilt_hover_deg": 8.880325317382812,
+      "pose_error_hover_deg": 18.02805519104004
     },
     "midair": {
       "robots": 512,
@@ -38,6 +40,8 @@
       "roll_rate_hover_mean": 0.1624828577041626,
       "joint_speed_hover_rms": 1.1874843835830688,
       "action_change_hover_mean": 0.05600344389677048,
+      "torso_tilt_hover_deg": 8.78123664855957,
+      "pose_error_hover_deg": 18.0761775970459,
       "recovered_frac": 1.0,
       "recovery_time_median_s": 1.1799999475479126
     },
@@ -52,7 +56,9 @@
       "ang_vel_mean": 0.7975108623504639,
       "roll_rate_hover_mean": 0.2649387717247009,
       "joint_speed_hover_rms": 1.2622026205062866,
-      "action_change_hover_mean": 0.0626629963517189
+      "action_change_hover_mean": 0.0626629963517189,
+      "torso_tilt_hover_deg": 7.898561477661133,
+      "pose_error_hover_deg": 17.8400821685791
     },
     "thrust_low": {
       "robots": 512,
@@ -65,7 +71,9 @@
       "ang_vel_mean": 0.6757911443710327,
       "roll_rate_hover_mean": 0.1628425568342209,
       "joint_speed_hover_rms": 1.1891815662384033,
-      "action_change_hover_mean": 0.055174414068460464
+      "action_change_hover_mean": 0.055174414068460464,
+      "torso_tilt_hover_deg": 9.813800811767578,
+      "pose_error_hover_deg": 18.184505462646484
     },
     "thrust_high": {
       "robots": 512,
@@ -78,7 +86,9 @@
       "ang_vel_mean": 0.7013128399848938,
       "roll_rate_hover_mean": 0.18347768485546112,
       "joint_speed_hover_rms": 1.1637396812438965,
-      "action_change_hover_mean": 0.056287944316864014
+      "action_change_hover_mean": 0.056287944316864014,
+      "torso_tilt_hover_deg": 7.559144020080566,
+      "pose_error_hover_deg": 17.949108123779297
     },
     "obs_noise": {
       "robots": 512,
@@ -91,7 +101,9 @@
       "ang_vel_mean": 2.606142282485962,
       "roll_rate_hover_mean": 0.6378211379051208,
       "joint_speed_hover_rms": 2.3575756549835205,
-      "action_change_hover_mean": 0.35605648159980774
+      "action_change_hover_mean": 0.35605648159980774,
+      "torso_tilt_hover_deg": 8.632071495056152,
+      "pose_error_hover_deg": 16.893310546875
     }
   }
 }
