@@ -1,0 +1,23 @@
+{
+  "task": "Humanoid-Fly-R1-IronMan-Stance-v1",
+  "seed": 0,
+  "air_start_prob": 0.0,
+  "clips": {
+    "Stage 5: frozen, legs apart": {
+      "checkpoint": "logs/r1_ironman_upright/2026-11-24_19-54-47/model_3595.pt",
+      "robots": 4,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    },
+    "Stage 6: Iron Man stance (iteration 4194)": {
+      "checkpoint": "logs/r1_ironman_stance/2026-11-25_00-29-01//model_4194.pt",
+      "robots": 4,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    }
+  }
+}

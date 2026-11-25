@@ -1,0 +1,31 @@
+{
+  "task": "Humanoid-Fly-R1-IronMan-Stance-v1",
+  "seed": 0,
+  "air_start_prob": 0.0,
+  "clips": {
+    "Iteration 0": {
+      "checkpoint": "logs/r1_ironman_v1/2026-11-24_04-20-27/model_0.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 173,
+      "crashes_per_robot": 4.805555555555555,
+      "fraction_above_1m_last_half": 0.0
+    },
+    "Iteration 25": {
+      "checkpoint": "logs/r1_ironman_v1/2026-11-24_04-20-27/model_25.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 108,
+      "crashes_per_robot": 3.0,
+      "fraction_above_1m_last_half": 0.7462222256660461
+    },
+    "Final (iteration 4194)": {
+      "checkpoint": "logs/r1_ironman_stance/2026-11-25_00-29-01//model_4194.pt",
+      "robots": 36,
+      "seconds": 10.0,
+      "crashes": 0,
+      "crashes_per_robot": 0.0,
+      "fraction_above_1m_last_half": 1.0
+    }
+  }
+}
